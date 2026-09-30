@@ -1,0 +1,39 @@
+services:
+  fishingbucket:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: fishingbucket:dev
+    container_name: fishingbucket
+    user: "1000:1000"
+    restart: unless-stopped
+
+    ports:
+      - "${api_port}:${api_port}"
+
+    environment:
+      TZ: "${TZ:-America/Chicago}"
+
+    volumes:
+      - type: bind
+        source: ${CONFIG_PATH}
+        target: /app/config/config.json
+        read_only: true
+
+      - type: bind
+        source: ${DATA_PATH}
+        target: /app/data
+
+      - type: bind
+        source: ${RUNTIME_PATH}
+        target: /app/runtime
+
+    networks:
+      - fishingbucket-isolated
+
+
+networks:
+  fishingbucket-isolated:
+    name: fishingbucket-isolated
+    driver: bridge

@@ -4,10 +4,11 @@ import time
 import discord
 import fluxer
 
-from ..backend.database import Database
+from ..backend.database.database import get_db
+from ..backend.database.user import SSOID
 from ..backend.logging import start_log
-from ..backend.models import Platform
-from ..backend.utils import quote
+from ..backend.models import Platform, MessageDat
+from ..backend.utils import quote, DelimitedString
 from ..interaction import Interactions
 from ..proxying.editing import try_reverse_engineer
 from ..proxying.event import on_user_message
@@ -45,11 +46,12 @@ async def handle_message(context: Context):
     if key in editing_proxy_messages and editing_proxy_messages[key][0] == context.message.channel_id:
         msg = editing_proxy_messages[key][1]
         editing_proxy_messages.pop(key)
-        lnk = await Database.instance.get_message_link(msg.id, msg.channel_id)
-        uid = await Database.instance.get_user_id(context.author.id, context.platform, False)
-        await edit_proxy_message(msg.context, context.content, lnk, uid)
-        await context.reply(f"Message edited! {await msg.mention()}")
-        return
+        lnk = await get_db().guilds.get_message_link(MessageDat(msg.id, msg.channel_id, context.platform))
+        uid = await get_db().users.get_user_id(SSOID(context.author.id), context.platform)
+        if lnk and uid:
+            await edit_proxy_message(msg.context, context.content, lnk, uid)
+            await context.reply(f"Message edited! {await msg.mention()}")
+            return
 
     try:
         maybe = await get_command_awaitable(context, Config.cfg(context.platform).prefixes)
@@ -70,6 +72,13 @@ async def handle_message(context: Context):
     await on_user_message(context)
 
 
+EMOJI_WHO = "❓"
+EMOJI_DELETE = "❌"
+EMOJI_EDIT = "📝"
+EMOJI_PING = "🔔"
+EMOJI_PING2 = "🛎️"
+
+
 async def handle_reaction(context: ReactionActionEvent, server: Server):
     user = await context.user()
     if user.is_bot: return
@@ -78,36 +87,39 @@ async def handle_reaction(context: ReactionActionEvent, server: Server):
     if await Interactions.instance.interact(ctx, user.id, (context, )):
         return
 
-    uid = await Database.instance.get_user_id(user.id, ctx.platform, False)
+    uid = await get_db().users.get_user_id(SSOID(user.id), ctx.platform)
+    message = MessageDat(ctx.id, ctx.message.channel_id, ctx.platform)
 
-    if context.emoji == "❓":
-        lnk = await Database.instance.get_message_link(ctx.id, ctx.message.channel_id)
+    if context.emoji in (EMOJI_WHO, EMOJI_DELETE, EMOJI_EDIT, EMOJI_PING, EMOJI_PING2):
+        lnk = await get_db().guilds.get_message_link(message)
         if lnk:
-            if proxy := await Database.instance.get_proxy(lnk.proxy_id):
+            proxy = await get_db().proxies.get(lnk.proxy_id)
+            if not proxy: return
+            await ctx.message.remove_reaction(context.emoji, user.id)
+
+            if context.emoji == EMOJI_WHO:
                 e = Embed(
                     "Proxied Message",
-                    f"**Proxy**: {proxy.name}\n**Owner**: <@{lnk.platform_user}> (`{lnk.platform_user}`)\n**Message Link**: [link]({await ctx.message.mention()})\n**Message**:\n{quote(ctx.content)}"
+                    str(
+                        DelimitedString("\n") +
+                        f"**Proxy**: {proxy.name}" +
+                        f"**Owner**: <@{lnk.platform_user}> (`{lnk.platform_user}`)" +
+                        f"**Message Link**: [link]({await ctx.message.mention()})" +
+                        f"**Message**:\n{quote(ctx.content)}"
+                    )
                 )
                 dm = await user.get_dm()
+                if not dm: return
                 await dm.send("", [e])
-                await ctx.message.remove_reaction("❓", user.id)
-                return
 
-    if context.emoji == "❌":
-        lnk = await Database.instance.get_message_link(ctx.id, ctx.message.channel_id)
-        if lnk:
-            if (proxy := await Database.instance.get_proxy(lnk.proxy_id)) and proxy.owner == uid:
-                await Database.instance.delete_link_message(ctx.id, ctx.message.channel_id)
+            if context.emoji == EMOJI_DELETE and proxy.owner == uid:
+                await get_db().guilds.delete_link_message(message)
                 await ctx.message.delete()
                 return
 
-    if context.emoji == "📝":
-        lnk = await Database.instance.get_message_link(ctx.id, ctx.message.channel_id)
-        if lnk:
-            proxy = await Database.instance.get_proxy(lnk.proxy_id)
-            if proxy.owner == uid:
-                await ctx.message.remove_reaction("📝", user.id)
+            if context.emoji == EMOJI_EDIT and proxy.owner == uid:
                 channel = await user.get_dm()
+                if not channel: return
                 raw = await ctx.get_wh_message_data(ctx)
                 await channel.send(f"Editing message:\n```\n{try_reverse_engineer(raw)}\n```")
                 await channel.send("Please enter the new content of the message here:")
@@ -117,15 +129,12 @@ async def handle_reaction(context: ReactionActionEvent, server: Server):
                     await channel.send("Message edit request expired!")
                     editing_proxy_messages.pop((user.id, ctx.platform))
 
-    if context.emoji == "🔔":
-        lnk = await Database.instance.get_message_link(ctx.id, ctx.message.channel_id)
-        if lnk:
-            await ctx.message.remove_reaction("🔔", user.id)
-            await ctx.reply(
-                f"<@{lnk.platform_user}>, {user.mention} has pinged you! Use :x: to delete this message (expires in 5 minutes).",
-                user_id_override=lnk.platform_user
-            )
-            return
+            if context.emoji in (EMOJI_PING, EMOJI_PING2):
+                await ctx.reply(
+                    f"<@{lnk.platform_user}>, {user.mention} has pinged you! Use :x: to delete this message (expires in 5 minutes).",
+                    user_id_override=lnk.platform_user
+                )
+                return
 
 
 def setup(server: Server):
@@ -162,9 +171,10 @@ def setup_fluxer(server: FluxerServer):
     @server.event
     async def on_message_delete(data: dict):
         channel_id, message_id = int(data["channel_id"]), int(data["id"])
-        lnk = await Database.instance.get_message_link(message_id, channel_id)
+        message = MessageDat(message_id, channel_id, Platform.Fluxer)
+        lnk = await get_db().guilds.get_message_link(message)
         if lnk:
-            await Database.instance.delete_link_message(message_id, channel_id)
+            await get_db().guilds.delete_link_message(message)
 
 
 def setup_discord(server: DiscordServer):
@@ -186,6 +196,7 @@ def setup_discord(server: DiscordServer):
 
     @server.event
     async def on_message_delete(message: discord.Message):
-        lnk = await Database.instance.get_message_link(message.id, message.channel.id)
+        message = MessageDat(message.id, message.channel.id, Platform.Discord)
+        lnk = await get_db().guilds.get_message_link(message)
         if lnk:
-            await Database.instance.delete_link_message(message.id, message.channel.id)
+            await get_db().guilds.delete_link_message(message)

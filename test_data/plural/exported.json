@@ -1,0 +1,51 @@
+{
+  "proxies": [
+    {
+      "name": "Member Name",
+      "description": "Bio",
+      "avatar_url": "https://cdn.plural.gg/images/6ab86373bc705cc27354b5aa/88014be6844eb27531e6a757a045f927.webp",
+      "triggers": [
+        "{text.lower().startswith('prefix') && text.lower().endswith('suffix') && text.slice(6, -6)}",
+        "prefix2{}suffix2"
+      ],
+      "times_used": 0,
+      "creation_date": "2026-09-28T03:01:10.620133Z",
+      "nickname": "",
+      "forms": {},
+      "current_form": "",
+      "pronouns": "pro/nouns",
+      "tags": [
+        "$0"
+      ]
+    },
+    {
+      "name": "Member Name 2",
+      "description": "",
+      "avatar_url": "https://fluxerstatic.com/avatars/avatars/3.png",
+      "triggers": [],
+      "times_used": 0,
+      "creation_date": "2026-09-28T03:01:10.620138Z",
+      "nickname": "",
+      "forms": {},
+      "current_form": "",
+      "pronouns": "",
+      "tags": [
+        "$1"
+      ]
+    }
+  ],
+  "tags": {
+    "$0": {
+      "name": "default",
+      "description": "",
+      "creation_date": "2026-09-28T03:01:10.620120Z",
+      "tag": ""
+    },
+    "$1": {
+      "name": "Group Name",
+      "description": "",
+      "creation_date": "2026-09-28T03:01:10.620123Z",
+      "tag": "{} Tag"
+    }
+  }
+}

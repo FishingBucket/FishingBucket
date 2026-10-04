@@ -229,7 +229,7 @@ class TimeDeltaStrategy(Strategy):
 
 
 class Literal(Strategy):
-    def __init__(self, literal: Any, placeholder_text: str = None, strat: Strategible = None):
+    def __init__(self, literal: Any, placeholder_text: str = "", strat: Strategible = None):
         self.literal = literal
         self.placeholder_text = placeholder_text or repr(str(literal))
         self.strat = strategize(strat or type(self.literal))
@@ -327,7 +327,9 @@ class Optional(Strategy):
         start = stream.pos
         if not stream.end:
             try:
-                return await self.strat.parse(stream, argument, context)
+                t = await self.strat.parse(stream, argument, context)
+                self.expect_start_another = False # hack asf
+                return t
             except SyntaxParseError:
                 stream.pos = start
                 return self.default

@@ -144,6 +144,18 @@ def setup():
             )
         )
 
+    if Config.instance.donation:
+        bot_group.append(
+            make_command(
+                "donate",
+                "Opens the link to the donation page.",
+                """
+                Opens the link to the donation page.
+                """,
+                []
+            )
+        )
+
 
 
 def setup_help_command():

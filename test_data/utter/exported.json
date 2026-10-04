@@ -1,0 +1,30 @@
+{
+  "proxies": [
+    {
+      "name": "Member Name",
+      "description": "",
+      "avatar_url": "https://fluxerstatic.com/avatars/avatars/0.png",
+      "triggers": [
+        "prefix {} suffix",
+        "prefix2 {} suffix2"
+      ],
+      "times_used": 0,
+      "creation_date": "2026-09-28T03:01:10.618130Z",
+      "nickname": "New Member",
+      "forms": {},
+      "current_form": "",
+      "pronouns": "",
+      "tags": [
+        "$0"
+      ]
+    }
+  ],
+  "tags": {
+    "$0": {
+      "name": "System Name",
+      "description": "The imported proxies from Utter!",
+      "creation_date": "2026-09-28T03:01:10.618115Z",
+      "tag": "{} ({proxy.pronouns}) System Tag"
+    }
+  }
+}

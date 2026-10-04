@@ -9,7 +9,7 @@ from .utils import paged
 from ..backend.cache import CacheStatus
 from ..backend.config import Config
 from ..backend.data_reader import DataReader
-from ..backend.database import Database
+from ..backend.database.database import get_db
 from ..backend.template_utils import Template
 from ..backend.models import Platform
 from ..service import Context, Embed
@@ -145,7 +145,7 @@ def setup():
         cache_efficiency_denominator = CacheStatus.instance.hits + CacheStatus.instance.misses
         cache_efficiency = (CacheStatus.instance.hits / cache_efficiency_denominator) if cache_efficiency_denominator != 0 else 1
 
-        db_stats: dict[str, Any] = await Database.instance.get_global_stats()
+        db_stats: dict[str, Any] = await get_db().get_global_stats()
         stats = {
             "guilds": ("Total community count", str(len(context.bot.guilds))),
             "uptime": ("Uptime", str(datetime.now() - start_time)),
@@ -188,3 +188,8 @@ def setup():
         @hook_command("contact")
         async def _(context: Context):
             await context.reply(f"Contact us [here]({Config.instance.website.contact})!")
+
+    if Config.instance.donation:
+        @hook_command("donate")
+        async def _(context: Context):
+            await context.reply(f"Donate to this project [here]({Config.instance.donation})!")

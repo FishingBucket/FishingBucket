@@ -1,0 +1,28 @@
+{
+  "proxies": [
+    {
+      "name": "Member Name",
+      "description": "",
+      "avatar_url": "NOT FALSEY",
+      "triggers": [
+        "prefix {} suffix",
+        "prefix2 {} suffix2"
+      ],
+      "times_used": 0,
+      "creation_date": "NOT FALSEY",
+      "nickname": "New Member",
+      "forms": {},
+      "current_form": "",
+      "pronouns": "",
+      "tags": ["$0"]
+    }
+  ],
+  "tags": {
+    "$0": {
+      "name": "System Name",
+      "description": "The imported proxies from Utter!",
+      "creation_date": "NOT FALSEY",
+      "tag": "{} ({proxy.pronouns}) System Tag"
+    }
+  }
+}

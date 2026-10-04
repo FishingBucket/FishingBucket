@@ -151,7 +151,7 @@ def setup():
                     "new nickname",
                     Optional(
                         str,
-                        None
+                        ""
                     ),
                     lambda: random.choice(["\"My Proxy's Nickname\"", ""])
                 )
@@ -179,7 +179,7 @@ def setup():
                 ),
                 Argument(
                     "new pronoun",
-                    Optional(str, None),
+                    Optional(str, ""),
                     lambda: random.choice([lorem_ipsum("MINI")(), random.choice(["he", "she", "they", "it", "any"]) + "/" + random.choice(["him", "her", "them", "its", "all"]), ""])
                 )
             ]
@@ -211,7 +211,7 @@ def setup():
                     "new description",
                     Optional(
                         StringStrategy("MEDIUM"),
-                        None
+                        ""
                     )
                 )
             ]
@@ -344,7 +344,7 @@ def setup():
                     "form",
                     Optional(
                         StringStrategy("MINI"),
-                        None
+                        ""
                     )
                 )
             ]

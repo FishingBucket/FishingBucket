@@ -1,6 +1,4 @@
 import random
-from types import EllipsisType
-from typing import Awaitable, Any
 
 from textdistance import damerau_levenshtein as edit_distance
 
@@ -9,20 +7,26 @@ from ..generic.data import Strategy, SyntaxParseError, ParseError
 from ..generic.misc import escape_string
 from ..generic.strategies import OneOf, HexadecimalStrategy, StringStrategy, IntegerStrategy
 from ...backend.config import Config
-from ...backend.database import Database
-from ...backend.models import Proxy, ProxyTag
+from ...backend.database.database import get_db
+from ...backend.database.user import UserID, SSOID
+from ...backend.models import Proxy, ProxyTag, FullProxy, ID
 from ...backend.template_utils import Template, ExprPart
 from ...backend.utils import normalize_emojis
 from ...service import Context
 
 
-async def get_uid(context: Context, create: bool = False, on_unregistered: Awaitable[Any] | EllipsisType | None = None) -> int:
-    uid = await Database.instance.get_user_id(context.author.id, context.platform, create)
-    if uid == -1 and on_unregistered is not ...:
-        if on_unregistered:
-            await on_unregistered
-        else:
-            await context.reply(f"Error: you do not have an account! You can create one by using the `{get_command_invocation('register', context.platform)}` command.")
+async def get_or_make_uid(context: Context) -> UserID:
+    return await get_db().users.get_or_create_user_id(SSOID(context.author.id), context.platform)
+
+
+async def get_uid_nullable(context: Context) -> UserID | None:
+    return await get_db().users.get_user_id(SSOID(context.author.id), context.platform)
+
+
+async def get_uid(context: Context) -> UserID:
+    uid = await get_db().users.get_user_id(SSOID(context.author.id), context.platform)
+    if uid is None:
+        await context.reply(f"Error: you do not have an account! You can create one by using the `{get_command_invocation('register', context.platform)}` command.")
         raise EarlyExitException()
     return uid
 
@@ -31,12 +35,12 @@ class ProxyStrategy(Strategy):
     def __init__(self, enforce_ownership: bool = True):
         self.enforce_ownership = enforce_ownership
 
-    async def parse(self, stream: CharacterStream, argument: ParsingArgument, context: Context) -> Proxy:
+    async def parse(self, stream: CharacterStream, argument: ParsingArgument, context: Context) -> FullProxy:
         owner = await get_uid(context)
         try:
             prox = await OneOf(hex, str).parse(stream, argument, context)
             if isinstance(prox, int):
-                proxy = await Database.instance.get_proxy(prox)
+                proxy = await get_db().proxies.get_full(ID(prox))
 
                 if not proxy:
                     raise ParseError("this proxy does not exist")
@@ -46,7 +50,7 @@ class ProxyStrategy(Strategy):
 
             else:
                 norm_name = normalize_emojis(prox)
-                user_proxies = await Database.instance.get_user_proxies(owner)
+                user_proxies = await get_db().proxies.full_from_user(owner)
                 if not user_proxies:
                     raise ParseError("you do not own any proxies")
 
@@ -95,7 +99,7 @@ class ProxyTagStrategy(Strategy):
         try:
             tg = await OneOf(hex, str).parse(stream, argument, context)
             if isinstance(tg, int):
-                tag = await Database.instance.get_tag(tg)
+                tag = await get_db().tags.get(ID(tg))
 
                 if not tag:
                     raise ParseError("this proxy tag does not exist")
@@ -105,7 +109,7 @@ class ProxyTagStrategy(Strategy):
 
             else:
                 norm_name = normalize_emojis(tg)
-                user_tags = await Database.instance.get_user_tags(owner)
+                user_tags = await get_db().tags.from_user(owner)
                 if not user_tags:
                     raise ParseError("you do not own any proxy tags")
 

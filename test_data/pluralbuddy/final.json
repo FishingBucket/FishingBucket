@@ -1,0 +1,48 @@
+{
+  "proxies": [
+    {
+      "name": "alter-username",
+      "description": "Description",
+      "avatar_url": "NOT FALSEY",
+      "triggers": [
+        "prefix4 {'prefix4 ' + text + ' suffix4'} suffix4"
+      ],
+      "times_used": 10,
+      "creation_date": "NOT FALSEY",
+      "nickname": "Display Name",
+      "forms": {},
+      "current_form": "",
+      "pronouns": "pro/nouns",
+      "tags": ["$1", "$0"]
+    },
+    {
+      "name": "alter-username2",
+      "description": "",
+      "avatar_url": "NOT FALSEY",
+      "triggers": [
+        "prefix5 {} suffix5"
+      ],
+      "times_used": 1,
+      "creation_date": "NOT FALSEY",
+      "nickname": "Display Name 2",
+      "forms": {},
+      "current_form": "",
+      "pronouns": "",
+      "tags": ["$0"]
+    }
+  ],
+  "tags": {
+    "$0": {
+      "name": "System Name",
+      "description": "Imported from PluralBuddy!",
+      "creation_date": "NOT FALSEY",
+      "tag": ""
+    },
+    "$1": {
+      "name": "Tag Display Name",
+      "description": "",
+      "creation_date": "NOT FALSEY",
+      "tag": ""
+    }
+  }
+}

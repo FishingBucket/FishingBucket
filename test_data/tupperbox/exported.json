@@ -1,0 +1,44 @@
+{
+  "proxies": [
+    {
+      "name": "Name 2",
+      "description": "",
+      "avatar_url": "https://cdn.tupperbox.app/pfp/1553496104207646842/qU5C7NeeoztfgdO_.webp",
+      "triggers": [
+        "prefix {}"
+      ],
+      "times_used": 0,
+      "creation_date": "2026-09-26T00:00:00Z",
+      "nickname": "",
+      "forms": {},
+      "current_form": "",
+      "pronouns": "",
+      "tags": [
+        "$0"
+      ]
+    },
+    {
+      "name": "Name",
+      "description": "Description",
+      "avatar_url": "https://cdn.tupperbox.app/pfp/1553496104207646842/sipWTyKrwEY2ZoBy.webp",
+      "triggers": [
+        "prefix{} suffix"
+      ],
+      "times_used": 1,
+      "creation_date": "2026-09-26T00:00:00Z",
+      "nickname": "Display Name Tag",
+      "forms": {},
+      "current_form": "",
+      "pronouns": "",
+      "tags": []
+    }
+  ],
+  "tags": {
+    "$0": {
+      "name": "Group",
+      "description": "Description",
+      "creation_date": "2026-09-28T03:01:10.610685Z",
+      "tag": "{} Tag"
+    }
+  }
+}

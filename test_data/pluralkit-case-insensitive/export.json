@@ -1,0 +1,206 @@
+{
+  "version": 2,
+  "id": "jansot",
+  "uuid": "fb2b9cce-70dc-46fe-9f08-5302ec45f988",
+  "name": "System Name",
+  "description": "System Description",
+  "tag": "System Tag",
+  "pronouns": "pro/nouns",
+  "avatar_url": "https://cdn.pluralkit.me/images/nm/r2d7saxexpm5iuwwsdea4sfe.webp",
+  "banner": null,
+  "color": null,
+  "created": "2026-09-26T21:18:24.084659Z",
+  "webhook_url": null,
+  "privacy": {
+    "name_privacy": "public",
+    "avatar_privacy": "public",
+    "description_privacy": "public",
+    "banner_privacy": "public",
+    "pronoun_privacy": "public",
+    "member_list_privacy": "public",
+    "group_list_privacy": "public",
+    "front_privacy": "public",
+    "front_history_privacy": "public"
+  },
+  "config": {
+    "timezone": "UTC",
+    "pings_enabled": true,
+    "latch_timeout": null,
+    "member_default_private": false,
+    "group_default_private": false,
+    "show_private_info": true,
+    "member_limit": 1000,
+    "group_limit": 250,
+    "case_sensitive_proxy_tags": false,
+    "proxy_error_message_enabled": true,
+    "hid_display_split": false,
+    "hid_display_caps": false,
+    "hid_list_padding": "off",
+    "card_show_color_hex": false,
+    "proxy_switch": "off",
+    "name_format": null,
+    "description_templates": []
+  },
+  "accounts": [
+    1553496104207646700
+  ],
+  "members": [
+    {
+      "id": "kejjes",
+      "uuid": "1298cd5a-5c7c-458f-9518-835b34826246",
+      "name": "Member Name",
+      "display_name": "Display Name",
+      "color": null,
+      "birthday": "1999-12-31",
+      "pronouns": "pro/nouns",
+      "avatar_url": "https://cdn.pluralkit.me/images/33/2pzrlkaw2b3dwynmwvdpknya.webp",
+      "webhook_avatar_url": null,
+      "banner": null,
+      "description": "Description",
+      "created": "2026-09-26T21:24:08.751817Z",
+      "keep_proxy": false,
+      "tts": false,
+      "autoproxy_enabled": true,
+      "message_count": 2,
+      "last_message_timestamp": "2026-09-26T21:26:08.868368Z",
+      "proxy_tags": [
+        {
+          "prefix": "prefix ",
+          "suffix": " suffix"
+        },
+        {
+          "prefix": "prefix2 ",
+          "suffix": " suffix2"
+        }
+      ],
+      "privacy": {
+        "visibility": "public",
+        "name_privacy": "public",
+        "description_privacy": "public",
+        "banner_privacy": "public",
+        "birthday_privacy": "public",
+        "pronoun_privacy": "public",
+        "avatar_privacy": "public",
+        "metadata_privacy": "public",
+        "proxy_privacy": "public"
+      }
+    },
+    {
+      "id": "zfpkyr",
+      "uuid": "2effdcdc-fb38-4b89-a6c1-c5d74ae397c4",
+      "name": "Member Name 3",
+      "display_name": null,
+      "color": null,
+      "birthday": null,
+      "pronouns": null,
+      "avatar_url": null,
+      "webhook_avatar_url": null,
+      "banner": null,
+      "description": null,
+      "created": "2026-09-26T21:28:08.07353Z",
+      "keep_proxy": false,
+      "tts": false,
+      "autoproxy_enabled": true,
+      "message_count": 0,
+      "last_message_timestamp": null,
+      "proxy_tags": [],
+      "privacy": {
+        "visibility": "public",
+        "name_privacy": "public",
+        "description_privacy": "public",
+        "banner_privacy": "public",
+        "birthday_privacy": "public",
+        "pronoun_privacy": "public",
+        "avatar_privacy": "public",
+        "metadata_privacy": "public",
+        "proxy_privacy": "public"
+      }
+    },
+    {
+      "id": "nzhpgw",
+      "uuid": "5a539440-183e-4975-af13-62c8ff3a1b22",
+      "name": "Member Name 2",
+      "display_name": null,
+      "color": null,
+      "birthday": null,
+      "pronouns": null,
+      "avatar_url": null,
+      "webhook_avatar_url": null,
+      "banner": null,
+      "description": null,
+      "created": "2026-09-26T21:26:40.714894Z",
+      "keep_proxy": true,
+      "tts": false,
+      "autoproxy_enabled": true,
+      "message_count": 0,
+      "last_message_timestamp": null,
+      "proxy_tags": [
+        {
+          "prefix": "prefix3 ",
+          "suffix": " suffix3"
+        }
+      ],
+      "privacy": {
+        "visibility": "public",
+        "name_privacy": "public",
+        "description_privacy": "public",
+        "banner_privacy": "public",
+        "birthday_privacy": "public",
+        "pronoun_privacy": "public",
+        "avatar_privacy": "public",
+        "metadata_privacy": "public",
+        "proxy_privacy": "public"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "id": "vjezyn",
+      "uuid": "762d5e1a-751b-4736-908a-cc03a974ca8b",
+      "name": "Group Name 2",
+      "display_name": null,
+      "description": null,
+      "icon": null,
+      "banner": null,
+      "color": null,
+      "created": "2026-09-26T21:27:49.581764Z",
+      "members": [
+        "zfpkyr"
+      ],
+      "privacy": {
+        "name_privacy": "public",
+        "description_privacy": "public",
+        "banner_privacy": "public",
+        "icon_privacy": "public",
+        "list_privacy": "public",
+        "metadata_privacy": "public",
+        "visibility": "public"
+      }
+    },
+    {
+      "id": "wfgruz",
+      "uuid": "ebac470d-1489-4faa-a365-70fd6e71e905",
+      "name": "Group Name",
+      "display_name": "Display Name",
+      "description": "Description",
+      "icon": "https://cdn.pluralkit.me/images/j4/cq2l4c6msxc7ovxnpjqp7eqa.webp",
+      "banner": null,
+      "color": null,
+      "created": "2026-09-26T21:26:55.878759Z",
+      "members": [
+        "nzhpgw",
+        "zfpkyr"
+      ],
+      "privacy": {
+        "name_privacy": "public",
+        "description_privacy": "public",
+        "banner_privacy": "public",
+        "icon_privacy": "public",
+        "list_privacy": "public",
+        "metadata_privacy": "public",
+        "visibility": "public"
+      }
+    }
+  ],
+  "switches": []
+}

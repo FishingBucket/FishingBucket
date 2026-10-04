@@ -4,12 +4,12 @@ import pydantic
 from aiohttp import ClientSession
 
 from .generic import hook_command
-from .specific import get_uid
-from ..backend.database import Database
+from .specific import get_uid, get_or_make_uid
+from ..backend.database.database import get_db
 from ..backend.import_system import NativeImporter, TupperboxImporter, PluralKitImporter, UtterImporter, NativeExporter, \
-    Importer, OldNativeImporter
+    Importer, PluRalImporter, PluralBuddyImporter
 from ..backend.logging import start_log
-from ..backend.models import ProxyTag, Proxy
+from ..backend.models import ProxyTag, Proxy, ID
 from ..service import Context, Embed, File
 
 print, error = start_log("im/exporter")
@@ -32,11 +32,11 @@ def setup():
             contents = await context.message.attachments[0].read()
 
         origin = origin or (
-            "fishing_bucket_old" if "proxies" in filename and filename.endswith(".json") else
             "fishing_bucket" if "fishing" in filename and "bucket" in filename and filename.endswith(".json") else
             "tupperbox" if "tupper" in filename and filename.endswith(".json") else
             "pluralkit" if "system" in filename and filename.endswith(".json") else
             "utter" if "utter" in filename and filename.endswith(".json") else
+            "/plu/ral" if "plural" in filename and filename.endswith(".json") else
             None
         )
 
@@ -45,11 +45,12 @@ def setup():
             return
 
         origin_names = {
-            "fishing_bucket_old": "Fishing Bucket (pre v18)",
             "fishing_bucket": "Fishing Bucket",
             "tupperbox": "Tupperbox",
             "pluralkit": "PluralKit",
-            "utter": "Utter"
+            "utter": "Utter",
+            "/plu/ral": "/plu/ral",
+            "pluralbuddy": "PluralBuddy"
         }
 
         confirmation = await context.reply(f"Importing from {origin_names[origin]}")
@@ -57,20 +58,22 @@ def setup():
             await context.message.delete()
         except: pass
 
-        owner = await get_uid(context, True)
+        owner = await get_or_make_uid(context)
 
         cls: Importer
 
         if origin == "fishing_bucket":
             cls = NativeImporter()
-        elif origin == "fishing_bucket_old":
-            cls = OldNativeImporter()
         elif origin == "tupperbox":
             cls = TupperboxImporter()
         elif origin == "pluralkit":
             cls = PluralKitImporter()
         elif origin == "utter":
             cls = UtterImporter()
+        elif origin == "/plu/ral":
+            cls = PluRalImporter()
+        elif origin == "pluralbuddy":
+            cls = PluralBuddyImporter()
         else:
             raise Exception("unreachable")
 
@@ -81,8 +84,9 @@ def setup():
             await confirmation.reply(f"Error: cannot parse file")
             return
 
-        user_proxies = await Database.instance.get_user_proxies(owner)
-        user_tags = await Database.instance.get_user_tags(owner)
+        user_proxies = await get_db().proxies.from_user(owner)
+        user_tags = await get_db().tags.from_user(owner)
+        user_relationships = await get_db().relationships.bulk_get_relationships([proxy.id for proxy in user_proxies])
 
         updated_proxies = 0
         updated_tags = 0
@@ -90,31 +94,40 @@ def setup():
         inserted_proxy_instances: list[Proxy] = []
         inserted_tag_instances: list[ProxyTag] = []
 
-        for tag in cls.tags:
-            found_tag = [t for t in user_tags if t.name == tag.name]
-            if found_tag:
-                db_tag = found_tag[0]
-                assert db_tag.id is not None
+        tag_mapping: dict[ID, ID] = {}
+        proxy_mapping: dict[ID, ID] = {}
 
-                await Database.instance.update_tag_description(db_tag.id, tag.description)
-                await Database.instance.update_tag_tag(db_tag.id, tag.tag)
-                updated_tags += 1
-            else:
-                inserted_tag_instances.append(await Database.instance.put_tag(tag))
+        async with get_db().transaction():
+            for tag in cls.tags:
+                found_tag = [t for t in user_tags if t.name == tag.name]
+                if found_tag:
+                    db_tag = found_tag[0]
+                    assert db_tag.id is not None
 
-        for proxy in cls.proxies:
-            found_proxy = [p for p in user_proxies if p.name == proxy.name]
-            if found_proxy:
-                db_proxy = found_proxy[0]
-                assert db_proxy.id is not None
+                    await get_db().tags.update(tag)
+                    updated_tags += 1
+                else:
+                    tag_mapping[tag.id] = await get_db().tags.put(tag)
+                    inserted_tag_instances.append(tag)
 
-                await Database.instance.update_description(db_proxy.id, proxy.description)
-                await Database.instance.update_nickname(db_proxy.id, proxy.nickname)
-                await Database.instance.update_avatar(db_proxy.id, proxy.avatar_url)
-                await Database.instance.update_trigger(db_proxy.id, proxy.triggers)
-                updated_proxies += 1
-            else:
-                inserted_proxy_instances.append(await Database.instance.put_proxy(proxy))
+            for proxy in cls.proxies:
+                found_proxy = [p for p in user_proxies if p.name == proxy.name]
+                if found_proxy:
+                    db_proxy = found_proxy[0]
+                    assert db_proxy.id is not None
+
+                    await get_db().proxies.update(proxy)
+                    updated_proxies += 1
+                else:
+                    proxy_mapping[proxy.id] = await get_db().proxies.put(proxy)
+                    inserted_proxy_instances.append(proxy)
+
+            for relation_proxy, relation_tags in cls.relationships.items():
+                remapped_proxy = proxy_mapping[relation_proxy]
+                remapped_tags = [tag_mapping[t] for t in relation_tags]
+                if remapped_proxy in user_relationships and user_relationships[remapped_proxy] == remapped_tags:
+                    continue
+                await get_db().relationships.set_relationship(remapped_proxy, remapped_tags)
 
         inserted_proxies = len(inserted_proxy_instances)
         inserted_tags = len(inserted_tag_instances)
@@ -147,15 +160,18 @@ def setup():
     @hook_command("export")
     async def _(context: Context):
         owner = await get_uid(context)
-        tags = await Database.instance.get_user_tags(owner)
-        proxies = await Database.instance.get_user_proxies(owner)
-        exporter = NativeExporter(proxies, tags)
+        tags = await get_db().tags.from_user(owner)
+        proxies = await get_db().proxies.full_from_user(owner)
+        relationships = await get_db().relationships.bulk_get_relationships([proxy.id for proxy in proxies])
+        exporter = NativeExporter(proxies, tags, relationships)
         file = File(
             exporter.filename,
             "",
             exporter.export_data()
         )
-        if not (await context.get_channel(context.message.channel_id)).dm:
+
+        channel = await context.get_this_channel()
+        if not channel.dm:
             dm = await context.author.get_dm()
             await dm.send("Proxies exported!", files=[file])
             await context.reply("I've sent your exported proxies into your DM!")

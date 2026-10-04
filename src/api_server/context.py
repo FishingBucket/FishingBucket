@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 
 from ..backend.config import Config_
-from ..backend.database import Database
+from ..backend.database.database import Database
+
 
 @dataclass
 class ApplicationContext:

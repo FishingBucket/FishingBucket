@@ -3,16 +3,35 @@ from typing import Literal
 
 from textdistance import damerau_levenshtein as edit_distance
 
-from .generic import hook_command
-from .specific import get_uid
-from .utils import example_trigger_text, paged_proxy_list, get_proxies_text
-from ..backend.database import Database, MessageLink, AUTOPROXY_USE_SPOTLIGHT
-from ..backend import database as db
-from ..backend.models import Proxy
+from .generic import hook_command, EarlyExitException
+from .specific import get_uid, get_or_make_uid
+from .utils import example_trigger_text, paged_proxy_list, get_proxy_text
+from ..backend.database.database import get_db
+from ..backend.database.guild import MessageLink
+from ..backend.database.user_setting import AutoproxyType, AutoproxyPreference
+from ..backend.models import ID, MessageDat, GuildDat, FullProxy
 from ..backend.template_utils import Template
-from ..backend.utils import normalize_emojis
+from ..backend.utils import normalize_emojis, quote
 from ..proxying.executor import reproxy, edit_proxy_message
-from ..service import Context, Embed
+from ..service import Context, Embed, Message
+
+
+async def require_reply(context: Context) -> tuple[MessageLink, Message]:
+    uid = await get_uid(context)
+
+    if ref := await context.message.get_reference():
+        message_id = ref.id
+        message_link = await get_db().guilds.get_message_link(MessageDat(
+            message_id, context.channel.id, context.platform
+        ))
+    else:
+        message_link = await get_db().guilds.latest_message_link_from_user(context.channel.id, context.platform, uid)
+
+    if not message_link or not (message := await context.channel.get_message(message_link.dat.message_id)):
+        await context.reply("Error: there are no previous proxied messages from you in this channel!")
+        raise EarlyExitException()
+
+    return message_link, message
 
 
 def setup():
@@ -21,32 +40,31 @@ def setup():
         name = normalize_emojis(name)
 
         if not context.message.attachments:
-            avatar_url = Proxy.random_avatar()
+            avatar_url = FullProxy.random_avatar()
         else:
             avatar_url = context.message.attachments[0].url
 
-        new_proxy = await Database.instance.put_proxy(
-            Proxy(
-                None,
-                name,
-                "",
-                avatar_url,
-                [trigger.string],
-                await get_uid(context, True),
-                0,
-                datetime.now().timestamp(),
-                "",
-                {},
-                "",
-                "",
-                [],
-                True
+        async with get_db().transaction():
+            new_proxy_id = await get_db().proxies.put(
+                FullProxy(
+                    ID(0),
+                    name,
+                    "",
+                    avatar_url,
+                    [trigger.string],
+                    await get_or_make_uid(context),
+                    datetime.now().timestamp(),
+                    "",
+                    {},
+                    "",
+                    "",
+                    0
+                )
             )
-        )
 
         embed = Embed(
-            f"{name} (`{new_proxy.id}`)",
-            f"Proxy **{name}** is registered with an ID of `{new_proxy.id}`!\nSay hello with it by typing `{example_trigger_text(trigger)}`",
+            f"{name} (`{new_proxy_id}`)",
+            f"Proxy **{name}** is registered with an ID of `{new_proxy_id}`!\nSay hello with it by typing `{example_trigger_text(trigger)}`",
             thumbnail_url=avatar_url
         )
         await context.reply("", [embed])
@@ -59,7 +77,10 @@ def setup():
 
         await paged_proxy_list(
             context,
-            await Database.instance.get_user_proxies(uid),
+            proxies := await get_db().proxies.full_from_user(uid),
+            await get_db().tags.from_user(uid),
+            await get_db().relationships.bulk_get_relationships([proxy.id for proxy in proxies]),
+            await get_db().user_settings.get_user_preference(uid),
             f"Registered Proxies of {context.author.display_name}",
             page,
             channel.dm or detailed
@@ -68,11 +89,10 @@ def setup():
 
     @hook_command("find")
     async def _(context: Context, name: str):
-        channel = await context.get_this_channel()
-        owner = await get_uid(context)
+        uid = await get_uid(context)
 
         norm_name = normalize_emojis(name)
-        user_proxies = await Database.instance.get_user_proxies(owner)
+        user_proxies = await get_db().proxies.full_from_user(uid)
 
         errors = []
 
@@ -102,19 +122,23 @@ def setup():
                 "\n".join(errors)
             ))
 
+        distanced_proxies = [user_proxies[i] for i in sorted_distances if sorted_distances[i] <= 5]
+        relationships = await get_db().relationships.bulk_get_relationships([proxy.id for proxy in distanced_proxies])
+
         await paged_proxy_list(
             context,
-            [user_proxies[i] for i in sorted_distances if sorted_distances[i] <= 5],
+            distanced_proxies,
+            await get_db().tags.from_user(uid),
+            relationships,
+            await get_db().user_settings.get_user_preference(uid),
             f"Proxy Search: **{name}**",
             0,
-            channel.dm,
-            additional_embeds,
             False
         )
 
 
     @hook_command("info")
-    async def _(context: Context, proxy: Proxy, detailed: bool = False):
+    async def _(context: Context, proxy: FullProxy, detailed: bool = False):
         channel = await context.get_this_channel()
         uid = await get_uid(context)
 
@@ -122,42 +146,40 @@ def setup():
 
         await context.reply("", [Embed(
             proxy.name,
-            get_proxies_text(
-                [proxy],
-                await Database.instance.get_user_preferences(uid),
+            get_proxy_text(
+                proxy,
+                await get_db().tags.fetch_bulk(await get_db().relationships.get_relationships(proxy.id)),
+                await get_db().user_settings.get_user_preference(uid),
                 detailed
-            )[0],
+            ),
             thumbnail_url=proxy.effective_avatar
         )])
 
 
     @hook_command("reproxy")
-    async def _(context: Context, proxy: Proxy):
-        owner = await get_uid(context)
+    async def _(context: Context, proxy: FullProxy):
+        uid = await get_uid(context)
 
-        if ref := await context.message.get_reference():
-            message_id = ref.id
-            message = ref
-        else:
-            message_id = await Database.instance.get_latest_proxy_message_from_user(context.channel.id, owner, context.platform)
-            if (message := await context.channel.get_message(message_id)) is None or not message_id:
-                await context.reply("Error: there are no previous proxied messages from you in this channel!")
-                return
+        message_link, message = await require_reply(context)
 
-        message_link: MessageLink = await Database.instance.get_message_link(message_id, context.channel.id)
         proxy_id = message_link.proxy_id
-        old_proxy = await Database.instance.get_proxy(proxy_id)
+        old_proxy = await get_db().proxies.get(proxy_id)
 
-        if old_proxy.owner != owner:
+        if not old_proxy or old_proxy.owner != uid:
             await context.reply("Error: you do not own the original proxy!")
             return
 
         await context.message.delete()
-        await reproxy(message.context, old_proxy, proxy)
+        await reproxy(message_link, message.context, old_proxy, proxy)
 
 
     @hook_command("autoproxy")
-    async def _(context: Context, setting: Proxy | Literal["latch"] | Literal["spotlight"] | bool, mode: Literal["global"] | Literal["community"] | None, expires: timedelta | Literal["never"]):
+    async def _(
+            context: Context,
+            setting: FullProxy | Literal["latch"] | Literal["spotlight"] | bool,
+            mode: Literal["global"] | Literal["community"] | None,
+            expires: timedelta | Literal["never"]
+    ):
         if setting == "latch":
             setting = True
 
@@ -167,31 +189,63 @@ def setup():
             expiration = expires.total_seconds()
 
         if mode == "global" or mode is None:
-            guild = db.Guild(0, context.platform)
+            guild = GuildDat(0, context.platform)
             postfix = "globally"
         else:
-            guild = db.Guild(context.guild.id, context.platform)
+            guild = GuildDat(context.guild.id, context.platform)
             postfix = "in this community"
 
         uid = await get_uid(context)
 
         if setting is True:
-            await Database.instance.set_autoproxy_preference(uid, guild, None, expiration)
+            async with get_db().transaction():
+                await get_db().user_settings.set_autoproxy_preference(uid, AutoproxyPreference(
+                    guild,
+                    None,
+                    None,
+                    expiration,
+                    AutoproxyType.NORMAL
+                ))
+
             await context.reply(f"Autoproxy has been set to latch mode {postfix}.")
+
         elif setting == "spotlight":
-            await Database.instance.set_autoproxy_preference(uid, guild, None, expiration, AUTOPROXY_USE_SPOTLIGHT)
+            async with get_db().transaction():
+                await get_db().user_settings.set_autoproxy_preference(uid, AutoproxyPreference(
+                    guild,
+                    None,
+                    None,
+                    expiration,
+                    AutoproxyType.SPOTLIGHT
+                ))
+
             await context.reply(f"Autoproxy has been set to first spotlight proxy {postfix}.")
 
         elif setting is False:
             if mode is None:
-                await Database.instance.remove_all_autoproxy_preference(uid)
-                await context.reply("Autoproxy has been turned off for everything.")
-                return
+                async with get_db().transaction():
+                    await get_db().user_settings.remove_all_autoproxy_preference(uid)
 
-            await Database.instance.remove_autoproxy_preference(uid, guild)
-            await context.reply(f"Autoproxy has been turned off {postfix}.")
+                await context.reply("Autoproxy has been turned off for everything.")
+
+            else:
+                async with get_db().transaction():
+                    await get_db().user_settings.remove_single_autoproxy_preference(uid, guild)
+
+                await context.reply(f"Autoproxy has been turned off {postfix}.")
+
         else:
-            await Database.instance.set_autoproxy_preference(uid, guild, setting.id, expiration)
+            assert isinstance(setting, FullProxy)
+
+            async with get_db().transaction():
+                await get_db().user_settings.set_autoproxy_preference(uid, AutoproxyPreference(
+                    guild,
+                    setting.id,
+                    None,
+                    expiration,
+                    AutoproxyType.NORMAL
+                ))
+
             await context.reply(f"Autoproxying as **{setting.name}** {postfix}.")
 
 
@@ -201,16 +255,17 @@ def setup():
             await context.reply("Error: reply to a proxied message to use this command.")
             return
 
-        lnk = await Database.instance.get_message_link(ref.id, ref.channel_id)
+        lnk = await get_db().guilds.get_message_link(MessageDat(ref.id, ref.channel_id, context.platform))
         if lnk:
-            if proxy := await Database.instance.get_proxy(lnk.proxy_id):
+            if proxy := await get_db().proxies.get(lnk.proxy_id):
                 e = Embed(
                     "Proxied Message",
-                    f"**Proxy**: {proxy.name}\n**Owner**: <@{lnk.platform_user}> (`{lnk.platform_user}`)\n**Message Link**: [link]({await ref.mention()})\n**Message**:\n{'\n'.join(('> ' + ln) for ln in ref.content.split('\n'))}"
+                    f"**Proxy**: {proxy.name}\n**Owner**: <@{lnk.platform_user}> (`{lnk.platform_user}`)\n**Message Link**: [link]({await ref.mention()})\n**Message**:\n{quote(ref.content)}"
                 )
                 dm = await context.author.get_dm()
-                await dm.send("", [e])
-                await context.message.delete()
+                if dm:
+                    await dm.send("", [e])
+                    await context.message.delete()
                 return
 
         await context.reply("Error: that message is not a proxied message!")
@@ -222,12 +277,19 @@ def setup():
             await context.reply("Error: reply to a proxied message to use this command.")
             return
 
-        lnk = await Database.instance.get_message_link(ref.id, ref.channel_id)
-        if lnk:
-            bypasses = bypass and (await context.channel.permissions_for(await context.get_member(context.author.id))).manage_messages
+        message = MessageDat(ref.id, ref.channel_id, context.platform)
 
-            if (proxy := await Database.instance.get_proxy(lnk.proxy_id)) and (bypasses or proxy.owner == await get_uid(context)):
-                await Database.instance.delete_link_message(ref.id, ref.channel_id)
+        lnk = await get_db().guilds.get_message_link(message)
+        if lnk:
+            member = await context.get_member(context.author.id)
+            if not member: return
+
+            bypasses = bypass and (await context.channel.permissions_for(member)).manage_messages
+
+            if (proxy := await get_db().proxies.get(lnk.proxy_id)) and (bypasses or proxy.owner == await get_uid(context)):
+                async with get_db().transaction():
+                    await get_db().guilds.delete_link_message(message)
+
                 await ref.delete()
                 await context.message.delete()
                 return
@@ -240,19 +302,17 @@ def setup():
 
     @hook_command("edit")
     async def _(context: Context, message: str):
-        if not (ref := await context.message.get_reference()):
-            await context.reply("Error: reply to a proxied message to use this command.")
+        uid = await get_uid(context)
+
+        message_link, ref = await require_reply(context)
+
+        proxy_id = message_link.proxy_id
+        old_proxy = await get_db().proxies.get(proxy_id)
+
+        if not old_proxy or old_proxy.owner != uid:
+            await context.reply("Error: you do not own the original proxy!")
             return
 
-        lnk = await Database.instance.get_message_link(ref.id, ref.channel_id)
-        if lnk:
-            if (proxy := await Database.instance.get_proxy(lnk.proxy_id)) and proxy.owner == (owner := await get_uid(context)):
-                await context.message.delete()
-                await edit_proxy_message(ref.context, message, lnk, owner)
-                return
-
-            await context.reply("Error: you do not own this proxy!")
-            return
-
-        await context.reply("Error: that message is not a proxied message!")
+        await context.message.delete()
+        await edit_proxy_message(ref.context, message, message_link, uid)
 

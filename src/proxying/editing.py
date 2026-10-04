@@ -1,15 +1,19 @@
 import re
 import textwrap
+from dataclasses import replace
 from datetime import datetime
 
 import expr_dice_roller as dice
 import json5
 from pydantic import BaseModel, field_validator, ValidationError
 
-from src.backend.database import GuildPreference, Database
-from src.backend.dice_environments import global_functions
-from src.backend.utils import roll_dice
-from src.service.common import RawEmbed, Embed, Message
+from ..backend.database.database import get_db
+from ..backend.database.guild import GuildPreference
+from ..backend.database.permission import GuildPermissions
+from ..backend.database.user import UserID
+from ..backend.dice_environments import global_functions
+from ..backend.utils import roll_dice
+from ..service.common import RawEmbed, Embed, Message
 
 
 def is_replace(content: str) -> tuple[re.Pattern, str, bool] | None:
@@ -45,7 +49,7 @@ def do_replace(replace: tuple[re.Pattern, str, bool], old_content: str) -> str:
     return replace[0].sub(replace[1], old_content, int(not replace[2]))
 
 
-block_content_regex = re.compile(r"{{(.+?)}}(?!})", re.S)
+BLOCK_CONTENT_RE = re.compile(r"{{(.+?)}}(?!})", re.S)
 
 class EmbedAuthor(BaseModel):
     name: str
@@ -102,10 +106,10 @@ class SingularEmbed(BaseModel):
 def normalize_embed(embed: SingularEmbed) -> RawEmbed:
     return RawEmbed(embed.model_dump(exclude_defaults=True, mode="python"))
 
-async def modify_message(user: int, guild_preferences: GuildPreference, message: str) -> tuple[str, list[Embed]]:
+async def modify_message(user: UserID, guild_preferences: GuildPreference, permissions: GuildPermissions, message: str) -> tuple[str, list[Embed]]:
     embed_list: list[Embed] = []
     evaluator = dice.Evaluator()
-    user_preferences = await Database.instance.get_user_preferences(user)
+    user_preferences = await get_db().user_settings.get_user_preference(user)
     fns = user_preferences.dice_functions
     if fns:
         env = dice.Environment.deserialize(evaluator, fns)
@@ -132,12 +136,11 @@ async def modify_message(user: int, guild_preferences: GuildPreference, message:
         parse_embed_error: ValidationError | None = None
 
         try:
-            print("{" + inner + "}")
             j = json5.loads("{" + inner + "}")
         except ValueError:
             do_embed = False
 
-        if do_embed:
+        if do_embed and GuildPermissions.EMBED_BLOCKS in permissions:
             assert isinstance(j, dict)
             try:
                 if "embeds" in j:
@@ -158,9 +161,11 @@ async def modify_message(user: int, guild_preferences: GuildPreference, message:
             global_environment = ge
 
         if not do_embed:
-            ret, embed = roll_dice(inner, get_global_environment, set_global_environment)
-            embed_list.append(embed)
-            return f"`{ret}`"
+            if GuildPermissions.DICE in permissions:
+                ret, embed = roll_dice(inner, get_global_environment, set_global_environment)
+                embed_list.append(embed)
+                return f"`{ret}`"
+            return "{{" + inner + "}}"
         else:
             embed_list.append(Embed(
                 "Error parsing embed block",
@@ -168,10 +173,10 @@ async def modify_message(user: int, guild_preferences: GuildPreference, message:
             ))
             return ""
 
-    result = block_content_regex.sub(construct, message), embed_list
+    result = BLOCK_CONTENT_RE.sub(construct, message), embed_list
     serialized = env.serialize()
     if serialized != fns:
-        await Database.instance.set_user_preferences(user, dice_functions=serialized)
+        await get_db().user_settings.set_user_preference(user, replace(user_preferences, dice_functions=serialized))
     return result
 
 

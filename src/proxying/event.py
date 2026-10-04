@@ -1,13 +1,17 @@
-from typing import Literal
+from dataclasses import replace
 
 from .editing import is_replace, do_replace
 from .executor import get_webhook, edit_proxy_message, send_proxy_message
 from .matcher import get_proxied_messages
-from ..backend.database import Guild, Database, MessageLink, GuildPreference
+from ..backend.database.database import get_db
+from ..backend.database.guild import MessageLink
+from ..backend.database.permission import GuildPermissions
+from ..backend.database.user import SSOID
 from ..backend.logging import start_log
-from ..backend.utils import quote
-from ..commands.specific import get_uid
-from ..service import Context, Webhook, Channel, Embed
+from ..backend.models import GuildDat, MessageDat
+from ..backend.utils import quote, DelimitedString
+from ..commands.specific import get_uid_nullable
+from ..service import Context, Webhook, Embed
 
 print, error = start_log("send_proxy", "-prox")
 
@@ -17,46 +21,53 @@ async def on_user_message(context: Context):
     if channel.dm:
         return
 
-    owner = await get_uid(context, on_unregistered=...)
-    guild = Guild(channel.guild_id, context.platform)
+    owner = await get_uid_nullable(context)
+    if owner is None: return
+
+    guild = GuildDat(channel.guild_id, context.platform)
     if (member := await context.get_member(context.author.id)) is None: return
 
     roles = await member.roles()
 
-    if await Database.instance.get_allow_proxy(
-            channel.id,
-            guild,
-            [role.id for role in roles][::-1],
-            context.author.id
-    ):
-        autoproxy_prefs = await Database.instance.get_autoproxy_preference(owner, guild)
+    permission = await get_db().permissions.compute_effective_permissions(
+        guild,
+        channel.id,
+        context.author.id,
+        [role.id for role in roles][::-1],
+    )
 
-        replace = is_replace(context.content)
-        if replace:
-            message_id = await Database.instance.get_latest_proxy_message_from_user(context.channel.id, owner, context.platform)
-            if (message := await context.channel.get_message(message_id)) is None or not message_id:
+    if GuildPermissions.PROXYING in permission:
+        autoproxy_prefs = await get_db().user_settings.get_effective_autoproxy_preference(owner, guild)
+        replace_dat = is_replace(context.content)
+
+        if replace_dat:
+            message_link = await get_db().guilds.latest_message_link_from_user(context.channel.id, context.platform, owner)
+            if not message_link or (message := await context.channel.get_message(message_link.dat.message_id)) is None:
                 return
-            message_link: MessageLink = await Database.instance.get_message_link(message_id, context.channel.id)
             webhook: Webhook = await get_webhook(message.context)
             new_context = await webhook.get_message_data(message.context)
-            if (proxy := await Database.instance.get_proxy(message_link.proxy_id)) is None:
+            if (proxy := await get_db().proxies.get(message_link.proxy_id)) is None:
                 return
 
             await edit_proxy_message(
                 message.context,
-                do_replace(replace, new_context.content),
+                do_replace(replace_dat, new_context.content),
                 message_link,
                 proxy.owner
             )
             await context.message.delete()
             return
 
-        print(f"Message [{hash(context.message)}] trying to match")
-        proxied = await get_proxied_messages(context.content, owner, autoproxy_prefs)
-        print(f"Message [{hash(context.message)}] match subroutine completed")
+        print(f"Message [{context.message.id}] trying to match")
+        proxied = await get_proxied_messages(context.content, owner, permission, autoproxy_prefs)
+        print(f"Message [{context.message.id}] match subroutine completed")
         if proxied:
-            logging_channel: Channel | None | Literal[False] = None
-            ctx = None
+            guild_preferences = await get_db().guilds.get_guild_preferences(guild)
+            logging_channel_id = guild_preferences.logging_channel
+            if logging_channel_id != 0:
+                logging_channel = await context.get_channel(logging_channel_id)
+            else:
+                logging_channel = None
 
             for i, proxied_message in enumerate(proxied):
                 proxy = proxied_message.proxy
@@ -64,48 +75,55 @@ async def on_user_message(context: Context):
 
                 if not (proxied_message.message or context.message.attachments):
                     return
+
                 try:
-                    ctx = await send_proxy_message(
+                    ctx, proxy_effective_name = await send_proxy_message(
                         proxied_message.proxy,
                         proxied_message.message,
                         context,
-                        context.message.attachments,
+                        context.message.attachments if i == 0 else [],
                         True,
-                        i == 0
+                        i == 0,
+                        permission
                     )
-
                 except Exception as e:
                     error(e)
                     await context.reply(f"Messages could not be proxied! `{e}`")
                     return
 
                 if ctx:
-                    await Database.instance.link_message(ctx.id, ctx.message.channel_id, proxy.id, context.author.id, context.platform)
+                    await get_db().guilds.link_message(MessageLink(
+                        MessageDat(
+                            ctx.id,
+                            ctx.message.channel_id,
+                            context.platform
+                        ),
+                        proxy.id,
+                        SSOID(context.author.id)
+                    ))
 
-                if logging_channel is None:
-                    server_preferences: GuildPreference = await Database.instance.get_guild_preferences(guild)
-                    logging_channel_id = server_preferences.logging_channel
-                    if logging_channel_id != 0:
-                        logging_channel = await context.get_channel(logging_channel_id)
-                    else:
-                        logging_channel = False
+                if logging_channel and ctx:
+                    ref = await context.message.get_reference()
+                    reply_msg = f"**Replying To**: [message link]({await ref.mention()})\n" if ref and i == 0 else None
+                    embed = Embed(
+                        f"Proxied Message",
+                        str(
+                            DelimitedString("\n", reply_msg) +
+                            f"**Proxy**: {proxy_effective_name}" +
+                            f"**Owner**: {context.author.mention} (`{context.author.id}`)" +
+                            f"**Channel**: {context.channel.mention} (`{context.channel.id}`)" +
+                            f"**Message Link**: [jump]({await ctx.message.mention()})" +
+                            f"**Message**:\n{quote(proxied_message.message)}"
+                        ),
+                        thumbnail_url=proxy.effective_avatar
+                    )
+                    await logging_channel.send("", [embed])
 
-                if logging_channel:
-                    if ctx:
-                        message_mention = await ctx.message.mention()
-                        ref = await context.message.get_reference()
-                        reply_msg = f"**Replying To**: [message link]({await ref.mention()})\n" if ref and i == 0 else ""
-                        embed = Embed(
-                            f"Proxied Message",
-                            f"**Proxy**: {proxy.effective_name}\n**Owner**: {context.author.mention} (`{context.author.id}`)\n**Channel**: {context.channel.mention} (`{context.channel.id}`)\n**Message Link**: [jump]({message_mention})\n{reply_msg}**Message**:\n{quote(proxied_message.message)}",
-                            thumbnail_url=proxy.effective_avatar
-                        )
-                        await logging_channel.send("", [embed])
-
-                await Database.instance.use_proxy(proxy.id)
+                await get_db().proxies.use(proxy.id)
 
             if proxied:
-                assert isinstance(proxied[0].proxy.id, int)
-                await Database.instance.set_autoproxy_last_used_proxy(owner, guild, proxied[0].proxy.id)
+                if autoproxy_prefs:
+                    autoproxy_prefs = replace(autoproxy_prefs, last_used_proxy=proxied[-1].proxy.id)
+                    await get_db().user_settings.set_autoproxy_preference(owner, autoproxy_prefs)
 
             await context.message.delete()

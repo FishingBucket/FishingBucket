@@ -50,14 +50,26 @@ functions: dict[str, Callable] = {
     "find": str.find,
     "_&&_": lambda a, b: a and b,
     "_||_": lambda a, b: a or b,
-    "matches": lambda this, exp: re.fullmatch(exp, this)
+    "matches": lambda this, exp: re.fullmatch(exp, this, re.MULTILINE),
+    "matches_insensitive": lambda this, exp: re.fullmatch(exp, this, re.IGNORECASE | re.MULTILINE)
 }
 
 class Template:
     def __init__(self, parts: list[TemplatePart], errors: list[str] = None):
         self.parts = parts
-        self.string: str | None = None
         self.errors: list[str] = errors or []
+
+
+    @property
+    def string(self) -> str:
+        res = ""
+        for part in self.parts:
+            if isinstance(part, TextPart):
+                res += part.content.replace("{", "\\{").replace("}", "\\}")
+            else:
+                res += "{" + part.content + "}"
+        return res
+
 
     @classmethod
     def from_string(cls, string: str) -> Template:
@@ -123,7 +135,6 @@ class Template:
                 simplified.append(part)
 
         obj = cls(simplified, errors)
-        obj.string = string
         Cache.ParseCache.set(string, obj)
         return obj
 

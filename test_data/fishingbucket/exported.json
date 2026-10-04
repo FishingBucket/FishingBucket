@@ -1,0 +1,48 @@
+{
+  "proxies": [
+    {
+      "name": "Proxy Name",
+      "description": "Description",
+      "avatar_url": "https://cdn.discordapp.com/attachments/1553496804664803350/1553527623500435536/jdenticon_ZpQ15_uqY.png?ex=6ab992d8&is=6ab84158&hm=743a0a380254723d837488596f1dffd63cc77d413bc7f6b11e4ad3b62560cf8f&",
+      "triggers": [
+        "prefix2 {} prefix2",
+        "prefix {} suffix",
+        "{text.contains(\"hello\") && text.startswith(\"x\") && text}"
+      ],
+      "times_used": 1,
+      "creation_date": "2026-09-27T07:04:08.785241Z",
+      "nickname": "Nickname",
+      "forms": {},
+      "current_form": "",
+      "pronouns": "pro/nouns",
+      "tags": []
+    },
+    {
+      "name": "Proxy Name 2",
+      "description": "",
+      "avatar_url": "https://cdn.discordapp.com/attachments/1553496804664803350/1553531681577635870/jdenticon_RKs5IXZ.png?ex=6ab996a0&is=6ab84520&hm=185dc2f209ccb42bfa420955c4776d22330c3ed438a58a8eb16bcc31c95c8869&",
+      "triggers": [
+        "prefix3 {} suffix3"
+      ],
+      "times_used": 1,
+      "creation_date": "2026-09-27T07:19:22.834996Z",
+      "nickname": "",
+      "forms": {
+        "form": "https://cdn.discordapp.com/attachments/1553496804664803350/1553531941867753593/jdenticon_bNZI-f.png?ex=6ab996de&is=6ab8455e&hm=f317c7b34f8e06ba050ebbcdd3f01c2070d9894bf495d33b7be3cb71352245a2&"
+      },
+      "current_form": "form",
+      "pronouns": "",
+      "tags": [
+        "$0"
+      ]
+    }
+  ],
+  "tags": {
+    "$0": {
+      "name": "Tag Name",
+      "description": "Description",
+      "creation_date": "2026-09-27T07:18:50.289000Z",
+      "tag": "Marker {}"
+    }
+  }
+}

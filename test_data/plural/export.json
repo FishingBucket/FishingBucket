@@ -1,0 +1,56 @@
+{
+  "timestamp": "2026-09-27T00:31:23.868788",
+  "groups": [
+    {
+      "id": 0,
+      "name": "default",
+      "avatar_url": null,
+      "channels": [],
+      "tag": null
+    },
+    {
+      "id": 1,
+      "name": "Group Name",
+      "avatar_url": "https://cdn.plural.gg/images/6ab863c439f9e0e5c855077f/254597ef185f91f827543bb68461c7ae.webp",
+      "channels": [],
+      "tag": "Tag"
+    }
+  ],
+  "members": [
+    {
+      "id": 0,
+      "name": "Member Name",
+      "pronouns": "pro/nouns",
+      "bio": "Bio",
+      "birthday": "1999-01-01",
+      "color": null,
+      "avatar_url": "https://cdn.plural.gg/images/6ab86373bc705cc27354b5aa/88014be6844eb27531e6a757a045f927.webp",
+      "proxy_tags": [
+        {
+          "prefix": "prefix",
+          "suffix": "suffix",
+          "regex": false,
+          "case_sensitive": false
+        },
+        {
+          "prefix": "prefix2",
+          "suffix": "suffix2",
+          "regex": false,
+          "case_sensitive": true
+        }
+      ],
+      "group_id": 0
+    },
+    {
+      "id": 0,
+      "name": "Member Name 2",
+      "pronouns": "",
+      "bio": "",
+      "birthday": "",
+      "color": null,
+      "avatar_url": null,
+      "proxy_tags": [],
+      "group_id": 1
+    }
+  ]
+}

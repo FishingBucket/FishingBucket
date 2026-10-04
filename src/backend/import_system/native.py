@@ -1,12 +1,13 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal
 
 from pydantic import BaseModel, AnyHttpUrl, NonNegativeInt
 
 from . import Exporter
 from .common import Importer
-from ..models import ProxyTag, Proxy, ID
+from ..database.user import UserID
+from ..models import ProxyTag, FullProxy, ID
 
 
 class NativeTag(BaseModel):
@@ -36,13 +37,13 @@ class NativeRoot(BaseModel):
 
 
 class NativeImporter(Importer):
-    def import_data(self, data: bytes, owner: int):
+    def import_data(self, data: bytes, owner: UserID):
         root = NativeRoot(**json.loads(data.decode("utf-8")))
 
-        parsed_tags: dict[str, ProxyTag] = {}
-        for idx, tag in root.tags.items():
+        parsed_tags: dict[str, ID] = {}
+        for i, (idx, tag) in enumerate(root.tags.items()):
             t = ProxyTag(
-                None,
+                ID(i),
                 tag.name,
                 tag.description,
                 owner,
@@ -50,19 +51,18 @@ class NativeImporter(Importer):
                 tag.tag
             )
             self.tags.append(t)
-            parsed_tags[idx] = t
+            parsed_tags[idx] = ID(i)
 
-        for proxy in root.proxies:
+        for i, proxy in enumerate(root.proxies):
             tags = [parsed_tags[idx] for idx in proxy.tags]
 
-            p = Proxy(
-                None,
+            p = FullProxy(
+                ID(i),
                 proxy.name,
                 proxy.description,
                 str(proxy.avatar_url),
                 proxy.triggers,
                 owner,
-                proxy.times_used,
                 proxy.creation_date.timestamp(),
                 proxy.nickname,
                 {
@@ -71,10 +71,11 @@ class NativeImporter(Importer):
                 },
                 proxy.current_form,
                 proxy.pronouns,
-                tags,
-                True
+                proxy.times_used,
             )
             self.proxies.append(p)
+            if tags:
+                self.relationships[p.id] = tags
 
 
 class NativeExporter(Exporter):
@@ -85,11 +86,10 @@ class NativeExporter(Exporter):
         tag_idx_map: dict[ID, str] = {}
 
         for i, tag in enumerate(self.tags):
-            assert tag.id is not None
             t = NativeTag(
                 name=tag.name,
                 description=tag.description,
-                creation_date=datetime.fromtimestamp(tag.creation_date),
+                creation_date=datetime.fromtimestamp(tag.creation_date, tz=timezone.utc),
                 tag=tag.tag
             )
             idx = f"${i}"
@@ -103,15 +103,13 @@ class NativeExporter(Exporter):
                 avatar_url=proxy.avatar_url,
                 triggers=proxy.triggers,
                 times_used=proxy.times_used,
-                creation_date=datetime.fromtimestamp(proxy.creation_date),
+                creation_date=datetime.fromtimestamp(proxy.creation_date, tz=timezone.utc),
                 nickname=proxy.nickname,
                 forms=proxy.forms,
                 current_form=proxy.current_form,
                 pronouns=proxy.pronouns,
                 tags=[
-                    tag_idx_map[
-                        tag.id # type: ignore
-                    ] for tag in proxy.tags
+                    tag_idx_map[tag] for tag in self.relationships.get(proxy.id, [])
                 ]
             )
             proxies.append(p)

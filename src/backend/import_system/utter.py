@@ -1,10 +1,11 @@
 import json
 import time
 
-from pydantic import BaseModel, AnyHttpUrl
+from pydantic import BaseModel
 
 from .common import Importer
-from ..models import ProxyTag, Proxy
+from ..database.user import UserID
+from ..models import ProxyTag, FullProxy, ID
 
 
 class UtterProxyTag(BaseModel):
@@ -16,7 +17,7 @@ class UtterMember(BaseModel):
     id: str
     name: str
     displayname: str | None = None
-    avatar_url: AnyHttpUrl | None = None
+    avatar_url: str | None = None
     proxy_tags: list[UtterProxyTag]
     keep_proxy: bool | None = None
     description: str | None = None
@@ -36,10 +37,10 @@ class UtterSystem(BaseModel):
 
 
 class UtterImporter(Importer):
-    def import_data(self, data: bytes, owner: int):
+    def import_data(self, data: bytes, owner: UserID):
         root = UtterSystem(**json.loads(data.decode("utf-8")))
         default_tag = ProxyTag(
-            None,
+            ID(0),
             root.name or "New System",
             "The imported proxies from Utter!",
             owner,
@@ -55,9 +56,9 @@ class UtterImporter(Importer):
         )
         self.tags.append(default_tag)
 
-        members_map: dict[str, Proxy] = {}
+        members_map: dict[str, FullProxy] = {}
 
-        for member in root.members:
+        for i, member in enumerate(root.members):
             triggers = []
             for tag in member.proxy_tags:
                 prefix = self.sanitize_potential_template_fragment(tag.prefix or "")
@@ -67,22 +68,22 @@ class UtterImporter(Importer):
                 else:
                     triggers.append(prefix + "{}" + postfix)
 
-            p = Proxy(
-                None,
+            p = FullProxy(
+                ID(i),
                 member.name,
                 member.description or "",
-                str(member.avatar_url) if member.avatar_url else Proxy.random_avatar(),
+                str(member.avatar_url) if member.avatar_url and member.avatar_url.startswith("http") else FullProxy.random_avatar(),
                 triggers,
                 owner,
-                0,
                 time.time(),
                 member.displayname or "",
                 {},
                 "",
                 member.pronouns or "",
-                [default_tag],
-                True
+                0
             )
 
             members_map[member.id] = p
             self.proxies.append(p)
+
+            self.relationships[p.id] = [default_tag.id]

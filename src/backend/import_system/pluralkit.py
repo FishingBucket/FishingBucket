@@ -6,7 +6,8 @@ from typing import Literal
 from pydantic import BaseModel, AnyHttpUrl, NonNegativeInt
 
 from .common import Importer
-from ..models import ProxyTag, Proxy
+from ..database.user import UserID
+from ..models import ProxyTag, FullProxy, ID
 
 
 class SystemGroup(BaseModel):
@@ -52,10 +53,10 @@ class PluralKitRoot(BaseModel):
 
 
 class PluralKitImporter(Importer):
-    def import_data(self, data: bytes, owner: int):
+    def import_data(self, data: bytes, owner: UserID):
         root = PluralKitRoot(**json.loads(data.decode("utf-8")))
         default_tag = ProxyTag(
-            None,
+            ID(0),
             root.name or "PluralKit System",
             root.description or "This group is used to house the imported proxies from PluralKit!",
             owner,
@@ -68,9 +69,9 @@ class PluralKitImporter(Importer):
         )
         self.tags.append(default_tag)
 
-        members_map: dict[str, Proxy] = {}
+        members_map: dict[str, FullProxy] = {}
 
-        for member in root.members:
+        for i, member in enumerate(root.members):
             triggers = []
             for tag in member.proxy_tags:
                 prefix = self.sanitize_potential_template_fragment(tag.prefix or "")
@@ -101,29 +102,28 @@ class PluralKitImporter(Importer):
                     else:
                         triggers.append(prefix + "{}" + postfix)
 
-            p = Proxy(
-                None,
+            p = FullProxy(
+                ID(i),
                 member.name,
                 member.description or "",
-                str(member.avatar_url) if member.avatar_url else Proxy.random_avatar(),
+                str(member.avatar_url) if member.avatar_url else FullProxy.random_avatar(),
                 triggers,
                 owner,
-                member.message_count or 0,
                 member.created.timestamp() if member.created else time.time(),
                 member.display_name or "",
                 {},
                 "",
                 member.pronouns or "",
-                [default_tag],
-                True
+                member.message_count or 0,
             )
 
             members_map[member.id] = p
             self.proxies.append(p)
+            self.relationships[p.id] = [default_tag.id]
 
-        for group in root.groups:
+        for i, group in enumerate(root.groups):
             t = ProxyTag(
-                None,
+                ID(i + 1), # this is to account for the default tag
                 group.display_name or group.name,
                 group.description or "",
                 owner,
@@ -133,6 +133,6 @@ class PluralKitImporter(Importer):
 
             for member_id in (group.members or []):
                 if member_id in members_map:
-                    members_map[member_id].tags.insert(0, t)
+                    self.relationships[members_map[member_id].id].insert(0, t.id)
 
             self.tags.append(t)

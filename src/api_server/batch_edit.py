@@ -4,7 +4,6 @@ from typing import Literal, Type, Generator
 from .models import BatchEdit, ModifiedItemResponse, ModifiedItem, ProxyTag, Proxy, Edit, DeleteProxyEdit, \
     DeleteProxyTagEdit, ItemDeleteResponse, NewProxyEdit, NewProxyTagEdit, EphemeralID, EditProxyTagField, \
     EditProxyField, ItemNewResponse, ItemUpdateResponse
-from ..backend.database import Database
 from ..backend import models as source
 
 class ID(namedtuple("ID", "id type")):

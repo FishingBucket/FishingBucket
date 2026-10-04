@@ -1,0 +1,101 @@
+{
+  "system": {
+    "associatedUserId": "1553496104207646842",
+    "alterIds": [
+      1553539181542641700,
+      1553541183915954200
+    ],
+    "tagIds": [
+      "1553539752009928700"
+    ],
+    "createdAt": "2026-09-26T22:49:14.479Z",
+    "systemAutoproxy": [
+      {
+        "autoproxyMode": "off",
+        "autoproxyAlter": null,
+        "serverId": "1553496803196805231"
+      }
+    ],
+    "public": 0,
+    "disabled": false,
+    "systemName": "System Name"
+  },
+  "alters": [
+    {
+      "_id": "6ab84c1cd0f47e80e3a3a6b7",
+      "alterId": 1553539181542641700,
+      "systemId": "1553496104207646842",
+      "username": "alter-username",
+      "displayName": "Display Name",
+      "nameMap": [],
+      "color": "#c0ffee",
+      "description": "Description",
+      "created": "2026-09-26T22:50:04.242Z",
+      "pronouns": "pro/nouns",
+      "avatarUrl": "https://img.pb.giftedly.dev/2suv48dn/k3l2028m877s219ha541qeg1d3ojx91k.webp",
+      "avatarUrlMap": {},
+      "webhookAvatarUrl": null,
+      "banner": null,
+      "lastMessageTimestamp": "2026-09-26T23:04:00.435Z",
+      "messageCount": 10,
+      "alterMode": "webhook",
+      "proxyTags": [
+        {
+          "prefix": "prefix4 ",
+          "suffix": " suffix4",
+          "id": "1553540063525081094"
+        }
+      ],
+      "tagIds": [
+        "1553539752009928700"
+      ],
+      "public": 1,
+      "flags": 1,
+      "fields": {}
+    },
+    {
+      "_id": "6ab84df9d0f47e80e3a3a6d0",
+      "alterId": 1553541183915954200,
+      "systemId": "1553496104207646842",
+      "username": "alter-username2",
+      "displayName": "Display Name 2",
+      "nameMap": [],
+      "color": null,
+      "description": null,
+      "created": "2026-09-26T22:58:01.645Z",
+      "pronouns": null,
+      "avatarUrl": "https://img.pb.giftedly.dev/564enkb9/l4mlx768r403oz7omyi648yh08m00orm.webp",
+      "avatarUrlMap": {},
+      "webhookAvatarUrl": null,
+      "banner": null,
+      "lastMessageTimestamp": "2026-09-26T22:59:13.786Z",
+      "messageCount": 1,
+      "alterMode": "webhook",
+      "proxyTags": [
+        {
+          "prefix": "prefix5 ",
+          "suffix": " suffix5",
+          "id": "1553541348215230478"
+        }
+      ],
+      "tagIds": [],
+      "public": 0,
+      "flags": 0,
+      "fields": {}
+    }
+  ],
+  "tags": [
+    {
+      "_id": "6ab84ca4d0f47e80e3a3a6c8",
+      "tagId": "1553539752009928700",
+      "systemId": "1553496104207646842",
+      "tagFriendlyName": "Tag Display Name",
+      "tagColor": "purple",
+      "associatedAlters": [
+        "1553539181542641700"
+      ],
+      "public": 0,
+      "fields": {}
+    }
+  ]
+}

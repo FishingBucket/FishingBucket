@@ -1,0 +1,53 @@
+{
+  "proxies": [
+    {
+      "name": "alter-username",
+      "description": "Description",
+      "avatar_url": "https://img.pb.giftedly.dev/2suv48dn/k3l2028m877s219ha541qeg1d3ojx91k.webp",
+      "triggers": [
+        "prefix4 {'prefix4 ' + text + ' suffix4'} suffix4"
+      ],
+      "times_used": 10,
+      "creation_date": "2026-09-26T22:50:04.242000Z",
+      "nickname": "Display Name",
+      "forms": {},
+      "current_form": "",
+      "pronouns": "pro/nouns",
+      "tags": [
+        "$1",
+        "$0"
+      ]
+    },
+    {
+      "name": "alter-username2",
+      "description": "",
+      "avatar_url": "https://img.pb.giftedly.dev/564enkb9/l4mlx768r403oz7omyi648yh08m00orm.webp",
+      "triggers": [
+        "prefix5 {} suffix5"
+      ],
+      "times_used": 1,
+      "creation_date": "2026-09-26T22:58:01.645000Z",
+      "nickname": "Display Name 2",
+      "forms": {},
+      "current_form": "",
+      "pronouns": "",
+      "tags": [
+        "$0"
+      ]
+    }
+  ],
+  "tags": {
+    "$0": {
+      "name": "System Name",
+      "description": "Imported from PluralBuddy!",
+      "creation_date": "2026-09-26T22:49:14.479000Z",
+      "tag": ""
+    },
+    "$1": {
+      "name": "Tag Display Name",
+      "description": "",
+      "creation_date": "2026-09-28T03:01:10.619381Z",
+      "tag": ""
+    }
+  }
+}

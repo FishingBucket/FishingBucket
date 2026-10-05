@@ -39,7 +39,7 @@ def setup():
             description += "\n\n"
             parts = []
             for platform in Platform:
-                if platform != context.platform:
+                if platform != context.platform and Config.cfg(platform):
                     b, s = get_invites(platform)
                     parts.append(f"Come join us on {platform.name}! [Invite bot]({b}) and [join community]({s})!")
             description += "\n".join(parts)

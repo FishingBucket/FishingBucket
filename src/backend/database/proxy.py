@@ -27,7 +27,7 @@ class ProxyRepository:
             INSERT INTO proxies (
                 name, description, avatar_url, triggers, owner, times_used, creation_date, nickname, proxy_forms, current_form, pronouns
             ) VALUES (
-                :name, :description, :avatar_url, :triggers, :owner, :times_used, :creation_date, :nickname, :proxy_forms, :current_form, :pronouns
+                :name, :description, :avatar_url, :triggers, :owner, :times_used, :creation_date, :nickname, :forms, :current_form, :pronouns
             ) RETURNING id
         """, proxy.to_primitive_dict()) as cursor:
             row = await cursor.fetchone()
@@ -42,7 +42,7 @@ class ProxyRepository:
         async with self.database.connection.execute("""
             UPDATE proxies SET
                 name = :name, description = :description, avatar_url = :avatar_url, triggers = :triggers, owner = :owner,
-                times_used = :times_used, creation_date = :creation_date, nickname = :nickname, proxy_forms = :proxy_forms,
+                times_used = :times_used, creation_date = :creation_date, nickname = :nickname, proxy_forms = :forms,
                 current_form = :current_form, pronouns = :pronouns
             WHERE id = :id
         """, proxy.to_primitive_dict()):

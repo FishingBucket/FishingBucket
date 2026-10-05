@@ -70,7 +70,9 @@ def setup():
                     previous.denies &= ~perms.value
                 else:
                     previous.allows |= pair.allows
+                    previous.allows &= ~pair.denies
                     previous.denies |= pair.denies
+                    previous.denies &= ~pair.allows
 
                 items.append(f"{type_}: allows {", ".join(
                     GUILD_PERMISSION_DISPLAY[t]

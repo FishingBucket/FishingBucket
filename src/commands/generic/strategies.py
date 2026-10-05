@@ -300,7 +300,7 @@ class OptionList(Strategy):
         self.fatal = fatal
 
     async def parse(self, stream: CharacterStream, argument: ParsingArgument, context: Context) -> str:
-        s = await StringStrategy().parse(stream, argument, context)
+        s = await WordStrategy().parse(stream, argument, context)
         for k, v in self.options.items():
             if s.lower() in [k] + v:
                 return k

@@ -43,7 +43,7 @@ class AutoproxyPreference:
             ID(row["proxy"]) if row["proxy"] is not None else None,
             ID(row["last_used_proxy"]) if row["last_used_proxy"] is not None else None,
             row["expires"],
-            AutoproxyType(row["flags"])
+            AutoproxyType(row["flags"] or 0)
         )
 
     def to_database(self) -> dict:
@@ -121,7 +121,7 @@ class UserSettingRepository:
     async def set_user_preference(self, user: UserID, preferences: UserPreference) -> None:
         async with self.database.connection.execute("""
             INSERT OR REPLACE INTO user_settings (
-                id,
+                user_id,
                 private_description, private_trigger, private_metadata, private_proxy_tags,
                 private_list, private_forms, private_pronouns, private_spotlight,
                 dice_functions, spotlight

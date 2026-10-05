@@ -35,8 +35,21 @@ class Application:
 
     def set_context(self, context: ApplicationContext):
         self.context = context
+
+        api_server = self.context.config.api_server
+
+        if api_server is None:
+            self.ready = False
+            print("[api_server] API server is not configured; initialization skipped.")
+            return
+
+        if not api_server.enabled:
+            self.ready = False
+            print("[api_server] API server is disabled; initialization skipped.")
+            return
+
+        Database(api_server.database)
         self.ready = True
-        Database(self.context.config.api_server.database)
 
     def create_router(self, prefix: str) -> APIRouter:
         r = APIRouter(prefix=prefix)

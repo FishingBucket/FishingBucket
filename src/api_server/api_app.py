@@ -1,3 +1,5 @@
+from typing import Callable
+
 import uvicorn
 from fastapi import FastAPI, HTTPException, APIRouter
 from fastapi.params import Header
@@ -5,7 +7,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from .api_database import Database, Session
+from .api_database import Database, Session, SessionID
 from .context import ApplicationContext
 from ..backend import logging
 from ..backend.logging import start_log
@@ -16,7 +18,7 @@ async def require_session(authorization: str | None = Header(None)) -> Session:
     if not authorization:
         raise HTTPException(401, "Missing AUTHORIZATION header.")
 
-    session = await Database.instance.get_session(authorization)
+    session = await Database.instance.get_session(SessionID(authorization))
     if not session:
         raise HTTPException(401, "Invalid or expired session.")
 
@@ -25,13 +27,14 @@ async def require_session(authorization: str | None = Header(None)) -> Session:
 class Application:
     def __init__(self):
         self.app = FastAPI()
-        self.context: ApplicationContext = None
+        self.context: ApplicationContext | None = None
         self.ready = False
         self.server: uvicorn.Server = None
         self.routers: list[APIRouter] = []
         self.limiter = Limiter(get_remote_address)
         self.app.state.limiter = self.limiter
         self.app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+        self.ready_callback: Callable[[], None] | None = None
 
     def set_context(self, context: ApplicationContext):
         self.context = context
@@ -50,6 +53,12 @@ class Application:
 
         Database(api_server.database)
         self.ready = True
+        if self.ready_callback:
+            self.ready_callback()
+
+    def on_ready(self, callback: Callable[[], None]) -> None:
+        self.ready_callback = callback
+
 
     def create_router(self, prefix: str) -> APIRouter:
         r = APIRouter(prefix=prefix)
@@ -57,11 +66,12 @@ class Application:
         return r
 
     async def serve(self):
-        if not self.ready:
+        if not self.ready or not self.context:
             raise Exception("Application is not ready yet!")
 
         await Database.instance.init()
         config = self.context.config
+        assert config.api_server is not None
 
         for r in self.routers:
             self.app.include_router(r)

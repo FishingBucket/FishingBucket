@@ -1,6 +1,9 @@
 import uvicorn
 from fastapi import FastAPI, HTTPException, APIRouter
 from fastapi.params import Header
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from .api_database import Database, Session
 from .context import ApplicationContext
@@ -26,6 +29,9 @@ class Application:
         self.ready = False
         self.server: uvicorn.Server = None
         self.routers: list[APIRouter] = []
+        self.limiter = Limiter(get_remote_address)
+        self.app.state.limiter = self.limiter
+        self.app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     def set_context(self, context: ApplicationContext):
         self.context = context

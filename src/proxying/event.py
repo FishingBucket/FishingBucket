@@ -53,6 +53,7 @@ async def on_user_message(context: Context):
                 message.context,
                 do_replace(replace_dat, new_context.content),
                 message_link,
+                permission,
                 proxy.owner
             )
             await context.message.delete()

@@ -7,7 +7,7 @@ import fluxer
 from ..backend.database.database import get_db
 from ..backend.database.user import SSOID
 from ..backend.logging import start_log
-from ..backend.models import Platform, MessageDat
+from ..backend.models import Platform, MessageDat, GuildDat
 from ..backend.utils import quote, DelimitedString
 from ..interaction import Interactions
 from ..proxying.editing import try_reverse_engineer
@@ -48,8 +48,18 @@ async def handle_message(context: Context):
         editing_proxy_messages.pop(key)
         lnk = await get_db().guilds.get_message_link(MessageDat(msg.id, msg.channel_id, context.platform))
         uid = await get_db().users.get_user_id(SSOID(context.author.id), context.platform)
-        if lnk and uid:
-            await edit_proxy_message(msg.context, context.content, lnk, uid)
+        if lnk and uid and (channel := await context.get_channel(lnk.dat.channel_id)) and (member := await context.get_member(context.author.id)):
+            roles = await member.roles()
+            perms = await get_db().permissions.compute_effective_permissions(
+                GuildDat(
+                    channel.guild_id,
+                    context.platform
+                ),
+                channel.id,
+                context.author.id,
+                [role.id for role in roles][::-1]
+            )
+            await edit_proxy_message(msg.context, context.content, lnk, perms, uid)
             await context.reply(f"Message edited! {await msg.mention()}")
             return
 

@@ -1,7 +1,6 @@
 import re
 from collections.abc import Callable
 from datetime import datetime
-from typing import Sequence
 
 import expr_dice_roller as dice
 

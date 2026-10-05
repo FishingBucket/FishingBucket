@@ -135,7 +135,7 @@ async def reproxy(message_link: MessageLink, context: Context, old_proxy: Proxy,
         await logging_channel.send("", embeds=[embed])
 
 
-async def edit_proxy_message(old_message: Context, new_message_contents: str, message_link: MessageLink, owner: UserID):
+async def edit_proxy_message(old_message: Context, new_message_contents: str, message_link: MessageLink, permissions: GuildPermissions, owner: UserID):
     webhook: Webhook = await get_webhook(old_message)
     if (channel := await old_message.get_channel(old_message.message.channel_id)) is None:
         return
@@ -143,7 +143,7 @@ async def edit_proxy_message(old_message: Context, new_message_contents: str, me
     guild = GuildDat(channel.guild_id, old_message.platform)
 
     server_preferences = await get_db().guilds.get_guild_preferences(guild)
-    contents, embeds = await modify_message(owner, server_preferences, new_message_contents)
+    contents, embeds = await modify_message(owner, server_preferences, permissions, new_message_contents)
 
     await webhook.edit(
         old_message,

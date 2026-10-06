@@ -1,0 +1,38 @@
+{
+  "api_server": {
+      "enabled": true,
+      "domain": "0.0.0.0",
+      "port": CHANGE_ME,
+      "database": "./runtime/api_server.db",
+      "fluxer": {
+          "client_id": CHANGE_ME,
+          "client_secret": "wowimasecret"
+      },
+      "discord": null
+  },
+  "fluxer": {
+    "token": "wowimatoken",
+    "guild_invite": "",
+    "guild_id": wowimaserverid,
+    "bot_invite": "",
+    "client_id": wowimaclientid,
+    "api_url": "",
+    "prefixes": ["!"]
+  },
+  "website": {
+      "dashboard": "https://domain.com/dashboard",
+      "home": "https://domain.com",
+      "terms": "https://domain.com/terms",
+      "privacy": "https://domain.com/privacy",
+      "contact": "https://domain.com/contact"
+  },
+  "discord": null,
+  "name": "FishingBucket",
+  "database_file": "./runtime/fishingbucket.db",
+  "data_path": "./data",
+  "webhook": "CHANGE_ME_TO_SOMETHING_DESCRIPTIVE",
+  "log_directory": "./runtime/logs",
+  "log_time_format": "%Y-%m-%d %H:%M:%S",
+  "use_extras": false,
+  "donation": null
+}

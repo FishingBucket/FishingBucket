@@ -282,7 +282,7 @@ def main():
             f"(Optional) {bot_name} wants a donation link to financially support you. Give it the URL, if any.",
             (lambda s: not s or valid_url(s), "Make sure you are providing a valid URL!"),
         )
-        output_dict["donations"] = donation_link or None
+        output_dict["donation"] = donation_link or None
     
         website = prompt(
             f"(Optional) {bot_name} wants the website at which the dashboard exists. Give it the URL, if any.",

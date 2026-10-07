@@ -1,9 +1,10 @@
-config*json
+config*.json
 logs/
 *.db*
+*.sqlite*
 data/emojis.json
 *v*env*/
-*env*
+*.env*
 .idea/
 .zed/
 .vscode/

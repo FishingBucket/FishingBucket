@@ -1,0 +1,21 @@
+{
+  "$schema": "./config.schema.json",
+  "name": "Bot Name",
+  "database_file": "path/to/permanent/database.sqlite",
+  "data_path": "./data/",
+  "webhook": "Webhook for Bot Name's Proxies",
+  "log_directory": "path/to/logs/",
+  "log_time_format": "%Y-%m-%d_%H-%M-%S",
+  "fluxer": {
+    "token": "1501314428688998182.aDFplg-fYQ4of4I7dM-q9tRxkgmjslc2LSE_BTwsAUo",
+    "guild_invite": "https://fluxer.gg/iAcmPOrs",
+    "guild_id": 1502394052687172075,
+    "bot_invite": "https://web.fluxer.app/oauth2/authorize?client_id=1501314428688998182&scope=bot&permissions=137976212560",
+    "client_id": 1501314428688998182,
+    "api_url": "https://api.fluxer.app/v1",
+    "prefixes": [
+      "!",
+      "fish!"
+    ]
+  }
+}

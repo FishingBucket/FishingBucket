@@ -26,7 +26,7 @@ Tupperbox and PluralKit.
 
 ## Self-Hosting
 
-To self-host FishingBucket, ensure that you have [Python 14](https://www.python.org/downloads/) installed.
+To self-host FishingBucket, ensure that you have [Python 3.14](https://www.python.org/downloads/) installed.
 Furthermore, obtain either [uv](https://docs.astral.sh/uv/) or [pip](https://pypi.org/project/pip/) for
 dependency management.
 
@@ -34,7 +34,7 @@ To get started with self-hosting, make a virtual environment and install the dep
 
 - With `pip`:
   ```shell
-  pip install -e .
+  python -m pip install -e .
   ```
 - With `uv`:
   ```shell

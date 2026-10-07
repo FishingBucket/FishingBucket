@@ -298,10 +298,13 @@ class Message(c.Message):
         )
 
     async def remove_reaction(self, emoji: str | int, user: int | None | type(...) = ...):
-        if user == ...:
-            await self.raw.clear_reaction(emoji)
-        else:
-            await self.raw.remove_reaction(emoji, discord.Object(user) if user else self.bot.user)
+        try:
+            if user == ...:
+                await self.raw.clear_reaction(emoji)
+            else:
+                await self.raw.remove_reaction(emoji, discord.Object(user) if user else self.bot.user)
+        except discord.Forbidden:
+            pass
 
     async def add_reaction(self, emoji: str | int):
         await self.raw.add_reaction(emoji)

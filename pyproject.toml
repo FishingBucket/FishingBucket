@@ -17,5 +17,6 @@ dependencies = [
     "lorem-text>=3.0",
     "humanfriendly>=10.0",
     "json5",
-    "slowapi"
+    "slowapi",
+    "aiohttp"
 ]

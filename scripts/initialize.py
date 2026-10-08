@@ -49,29 +49,31 @@ def valid_url(url: str) -> bool:
     except AttributeError:
         return False
 
+previous_fluxer_instance: dict = {}
+
 def is_fluxer_instance(url: str) -> bool:
-    wellknown = url.rstrip("/") + "/.well-known/fluxer"
+    tries = [url.rstrip("/") + "/.well-known/fluxer", url.rstrip("/") + "/api/.well-known/fluxer"]
 
     async def get_information() -> bool:
+        global previous_fluxer_instance
+
         async with aiohttp.ClientSession() as session:
-            try:
-                async with session.get(wellknown) as response:
-                    return response.status == 200
-            except aiohttp.ClientError:
-                return False
+            for attempt in tries:
+                try:
+                    async with session.get(attempt) as response:
+                        previous_fluxer_instance = await response.json()
+                        return True
+                except aiohttp.ClientError, json.JSONDecodeError:
+                    continue
+            return False
 
     return asyncio.run(get_information())
 
 def get_fluxer_instance(url: str) -> dict:
-    wellknown = url.rstrip("/") + "/.well-known/fluxer"
+    if not previous_fluxer_instance:
+        is_fluxer_instance(url)
 
-    async def get_information() -> dict:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(wellknown) as response:
-                assert response.status == 200
-                return await response.json()
-
-    return asyncio.run(get_information())
+    return previous_fluxer_instance
 
 def is_int(text: str) -> bool:
     try:

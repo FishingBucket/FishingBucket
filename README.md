@@ -1,22 +1,14 @@
 # FishingBucket
 
----
-
-<div style="text-align: center">
-
 ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/FishingBucket/FishingBucket)
 ![GitHub contributors](https://img.shields.io/github/contributors/FishingBucket/FishingBucket)
 ![GitHub License](https://img.shields.io/github/license/FishingBucket/FishingBucket)
 ![GitHub repo size](https://img.shields.io/github/repo-size/FishingBucket/FishingBucket)
 
-</div>
-
-<div style="text-align: center">
-
 ![Fluxer](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.fluxer.app%2Fv1%2Finvites%2Ffishingbucket&query=%24.presence_count&suffix=%20online&logo=Fluxer&label=Fluxer&logoColor=4641D9&labelColor=white&color)
 ![Discord](https://img.shields.io/discord/1478257699274621120?label=Discord&logo=discord&labelColor=white)
 
-</div>
+---
 
 FishingBucket is the next-generation of proxy services.
 
@@ -24,9 +16,19 @@ Fluxer and Discord bot to forward messages into faux-profiles called "proxies", 
 Tupperbox and PluralKit.
 
 
+## Documentation
+
+User-facing documentation is coming soon!
+
+
 ## Self-Hosting
 
-To self-host FishingBucket, ensure that you have [Python 3.14](https://www.python.org/downloads/) installed.
+There are two ways to self-host FishingBucket: the first way is through running the raw Python source, and the second way
+is running on Docker.
+
+### From Source
+
+To self-host FishingBucket from source, ensure that you have [Python 3.14](https://www.python.org/downloads/) installed.
 Furthermore, obtain either [uv](https://docs.astral.sh/uv/) or [pip](https://pypi.org/project/pip/) for
 dependency management.
 
@@ -62,3 +64,7 @@ After the scripts finish, the setup and configurations will be good to go. What'
   ```shell
   uv run main.py path/to/config.json
   ```
+
+### Docker
+
+Docker support is coming to FishingBucket soon! Keep your eyes peeled and watch the repository for updates!

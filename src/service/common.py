@@ -274,9 +274,8 @@ class Message[Raw, Bot](ABC):
     @abstractmethod
     def author(self) -> User: pass
 
-    @property
     @abstractmethod
-    def member(self) -> Member: pass
+    async def member(self) -> Member: pass
 
     @property
     @abstractmethod

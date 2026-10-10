@@ -290,8 +290,7 @@ class Message(c.Message[discord.Message, discord.Bot]):
     def author(self) -> c.User:
         return User(self.raw.author if isinstance(self.raw.author, discord.User) else self.raw.author._user, self.bot)
 
-    @property
-    def member(self) -> c.Member:
+    async def member(self) -> c.Member:
         assert isinstance(self.raw.author, discord.Member) # fingers crossed
         return Member(self.raw.author, self.bot)
 

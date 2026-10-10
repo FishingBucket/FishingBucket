@@ -1,13 +1,14 @@
+from dataclasses import dataclass, replace
 from datetime import datetime
 from io import BytesIO
 import re
 from types import EllipsisType
-from typing import Literal, Unpack, cast
+from typing import Literal, Unpack, cast, Sequence
 
 import discord
 
 from . import common as c
-from .common import Embed, File, RawEmbed, AllowedMention, SendMessageKwargs, MentionPreference
+from .common import Embed, File, RawEmbed, AllowedMention, SendMessageKwargs, MentionPreference, SendMessageArgs
 from ..backend.models import Platform
 from ..interaction import Interactions, Interaction
 
@@ -36,14 +37,36 @@ def to_allowed_mentions(allowed_mentions: AllowedMention | None) -> discord.Allo
         replied_user=allowed_mentions.replied_user
     )
 
+@dataclass
+class SendMessageData:
+    content: str
+    embeds: list[Embed]
+    files: list[File]
+    allowed_mentions: AllowedMention | None
 
-def to_send_kwargs(kwargs: SendMessageKwargs) -> dict:
+    def to_kwargs(self) -> SendMessageKwargs:
+        return {
+            "content": self.content,
+            "embeds": self.embeds,
+            "files": self.files,
+            "allowed_mentions": self.allowed_mentions
+        }
+
+
+def to_send_kwargs(dat: SendMessageData) -> dict:
     return {
-        "content": kwargs["content"],
-        "embeds": [to_embed(e) for e in kwargs.get("embeds") or []],
-        "files": [to_file(f) for f in kwargs.get("files") or []],
-        "allowed_mentions": to_allowed_mentions(kwargs.get("allowed_mentions"))
+        "content": dat.content,
+        "embeds": [to_embed(e) for e in dat.embeds],
+        "files": [to_file(f) for f in dat.files],
+        "allowed_mentions": to_allowed_mentions(dat.allowed_mentions)
     }
+
+def collect_args_kwargs(args: Sequence[SendMessageArgs], kwargs: SendMessageKwargs) -> SendMessageData:
+    content = args[0] if len(args) > 0 else kwargs.get("content", "")
+    assert isinstance(content, str)
+    embeds = args[1] if len(args) > 1 else kwargs.get("embeds", [])
+    assert isinstance(embeds, list)
+    return SendMessageData(content, embeds, kwargs.get("files", []), kwargs.get("allowed_mentions"))
 
 
 class Attachment(c.Attachment[discord.Attachment, discord.Bot]):
@@ -144,9 +167,9 @@ class Channel(c.Channel[DiscordChannels, discord.Bot]):
     def mention(self) -> str:
         return f"<#{self.id}>"
 
-    async def send(self, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
+    async def send(self, *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
         assert not isinstance(self.raw, (discord.ForumChannel, discord.CategoryChannel))
-        message = await self.raw.send(**to_send_kwargs(kwargs))
+        message = await self.raw.send(**to_send_kwargs(collect_args_kwargs(args, kwargs)))
         return Message(message, self.bot).context
 
     async def get_message(self, message_id: int) -> c.Message | None:
@@ -355,12 +378,12 @@ class Message(c.Message[discord.Message, discord.Bot]):
     async def delete(self):
         await self.raw.delete()
 
-    async def reply(self, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
-        message = await self.raw.reply(**to_send_kwargs(kwargs))
+    async def reply(self, *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
+        message = await self.raw.reply(**to_send_kwargs(collect_args_kwargs(args, kwargs)))
         return Message(message, self.bot).context
 
-    async def edit(self, **kwargs: Unpack[SendMessageKwargs]):
-        await self.raw.edit(**to_send_kwargs(kwargs))
+    async def edit(self, *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]):
+        await self.raw.edit(**to_send_kwargs(collect_args_kwargs(args, kwargs)))
 
     async def remove_reaction(self, emoji: str, user: int | None | EllipsisType = ...):
         try:
@@ -389,15 +412,15 @@ class Webhook(c.Webhook[discord.Webhook, discord.Bot]):
     def name(self) -> str:
         return cast(str, self.raw.name or "")
 
-    async def send(self, username: str = "", avatar_url: str = "", **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
+    async def send(self, username: str = "", avatar_url: str = "", *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
         message = await self.raw.send(
             username=username,
             avatar_url=avatar_url,
-            **to_send_kwargs(kwargs)
+            **to_send_kwargs(collect_args_kwargs(args, kwargs))
         )
         return Message(message, self.bot).context
 
-    async def transform_embeds(self, embeds: list[c.Embed], reference: c.Context) -> list[c.Embed]:
+    async def transform_embeds(self, embeds: list[Embed], reference: c.Context) -> list[Embed]:
         trunc = reference.content[:min(250, len(reference.content))]
         if len(trunc) != len(reference.content):
             trunc += "..."
@@ -410,24 +433,28 @@ class Webhook(c.Webhook[discord.Webhook, discord.Bot]):
     REPLY_DESCRIPTION_REGEX = re.compile(r"\[Replying to]\(https://discord\.com/channels/(?:\d+?|@me)/\d+?/(\d+?)\) .+?:")
 
 
-    async def reply(self, context: c.Context, username: str = "", avatar_url: str = "", mention_str: str | Literal[False] | None = None, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
+    async def reply(self, context: c.Context, username: str = "", avatar_url: str = "", mention_str: str | Literal[False] | None = None, *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
         mention_str = mention_str or context.author.mention
-        send_kwargs = to_send_kwargs(kwargs)
+        data = collect_args_kwargs(args, kwargs)
+        if mention_str is not False:
+            data.content = f"-# ↩ {mention_str}\n{data.content}"
+        data.embeds = await self.transform_embeds(data.embeds, context)
+        send_kwargs = to_send_kwargs(data)
         return await self.send(
-            content=f"-# ↩ {mention_str}\n{kwargs["content"]}" if mention_str is not False else kwargs["content"],
             username=username,
             avatar_url=avatar_url,
-            **(send_kwargs | {"embeds": await self.transform_embeds(send_kwargs["embeds"], context)})
+            **send_kwargs
         )
 
-    async def edit(self, context: c.Context, **kwargs: Unpack[SendMessageKwargs]):
+    async def edit(self, context: c.Context, *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]):
         data = (await self.get_message_data(context)).context
-        content = kwargs["content"]
+        collected = collect_args_kwargs(args, kwargs)
+        content = collected.content
         if data.message.has_reference:
             content = context.content.split("\n")[0] + "\n" + content
         await self.raw.edit_message(
             context.id,
-            **(to_send_kwargs(kwargs) | {"content": content})
+            **(to_send_kwargs(replace(collected, content=content)))
         )
 
     async def get_message_data(self, context: c.Context) -> c.Message:
@@ -543,13 +570,12 @@ class Context(c.Context[Message, Bot]):
             return True
         return False
 
-    async def reply(self, *, user_id_override: int | None = None, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
+    async def reply(self, *args: SendMessageArgs, user_id_override: int | None = None, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
+        data = collect_args_kwargs(args, kwargs)
         try:
-            ctx = await self.message.reply(**kwargs)
+            ctx = await self.message.reply(*args, **kwargs)
         except discord.HTTPException:
-            ctx = await self.channel.send(**(kwargs | {
-                "content": (f"<@{self.author.id}>\n" if not self.is_bot else "") + kwargs["content"]
-            }))
+            ctx = await self.channel.send(**replace(data, content=(f"<@{self.author.id}>\n" if not self.is_bot else "") + data.content).to_kwargs())
 
         Interactions.instance.add_interaction(ctx, Interaction(user_id_override or self.author.id, self.interact_to_delete))
         return ctx

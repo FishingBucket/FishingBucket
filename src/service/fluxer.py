@@ -1,8 +1,9 @@
 import json
+from dataclasses import dataclass, replace
 from datetime import datetime
 from io import BytesIO
 from types import EllipsisType
-from typing import Literal, Any, Unpack
+from typing import Literal, Any, Unpack, Sequence
 
 import aiohttp
 import fluxer
@@ -10,7 +11,7 @@ import fluxer.http as fhttp
 from aiohttp import ClientSession
 
 from . import common as c
-from .common import Embed, File, RawEmbed, AllowedMention, SendMessageKwargs, MentionPreference
+from .common import Embed, File, RawEmbed, AllowedMention, SendMessageKwargs, MentionPreference, SendMessageArgs
 from ..backend.models import Platform
 from ..interaction import Interactions, Interaction
 
@@ -43,13 +44,36 @@ def to_allowed_mentions(allowed_mentions: AllowedMention | None) -> FluxerAllowe
         replied_user=allowed_mentions.replied_user
     )
 
-def to_send_kwargs(kwargs: SendMessageKwargs) -> dict:
+@dataclass
+class SendMessageData:
+    content: str
+    embeds: list[Embed]
+    files: list[File]
+    allowed_mentions: AllowedMention | None
+
+    def to_kwargs(self) -> SendMessageKwargs:
+        return {
+            "content": self.content,
+            "embeds": self.embeds,
+            "files": self.files,
+            "allowed_mentions": self.allowed_mentions
+        }
+
+
+def to_send_kwargs(dat: SendMessageData) -> dict:
     return {
-        "content": kwargs["content"],
-        "embeds": [from_embed(e) for e in kwargs.get("embeds") or []],
-        "files": [from_file(f) for f in kwargs.get("files") or []],
-        "allowed_mentions": to_allowed_mentions(kwargs.get("allowed_mentions"))
+        "content": dat.content,
+        "embeds": [from_embed(e) for e in dat.embeds],
+        "files": [from_file(f) for f in dat.files],
+        "allowed_mentions": to_allowed_mentions(dat.allowed_mentions)
     }
+
+def collect_args_kwargs(args: Sequence[SendMessageArgs], kwargs: SendMessageKwargs) -> SendMessageData:
+    content = args[0] if len(args) > 0 else kwargs.get("content", "")
+    assert isinstance(content, str)
+    embeds = args[1] if len(args) > 1 else kwargs.get("embeds", [])
+    assert isinstance(embeds, list)
+    return SendMessageData(content, embeds, kwargs.get("files", []), kwargs.get("allowed_mentions"))
 
 
 class Attachment(c.Attachment[fluxer.models.Attachment, fluxer.Bot]):
@@ -187,8 +211,8 @@ class Channel(c.Channel[fluxer.Channel, fluxer.Bot]):
     def mention(self) -> str:
         return f"<#{self.id}>"
 
-    async def send(self, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
-        message = await self.raw.send(**to_send_kwargs(kwargs))
+    async def send(self, *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
+        message = await self.raw.send(**to_send_kwargs(collect_args_kwargs(args, kwargs)))
         return Message(message, self.bot).context
 
     async def get_message(self, message_id: int) -> c.Message | None:
@@ -371,12 +395,12 @@ class Message(c.Message[fluxer.Message, fluxer.Bot]):
     async def delete(self):
         await self.raw.delete()
 
-    async def reply(self, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
-        message = await self.raw.reply(**to_send_kwargs(kwargs))
+    async def reply(self, *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
+        message = await self.raw.reply(**to_send_kwargs(collect_args_kwargs(args, kwargs)))
         return Message(message, self.bot).context
 
-    async def edit(self, **kwargs: Unpack[SendMessageKwargs]):
-        await self.raw.edit(**to_send_kwargs(kwargs))
+    async def edit(self, *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]):
+        await self.raw.edit(**to_send_kwargs(collect_args_kwargs(args, kwargs)))
 
     async def remove_reaction(self, emoji: str, user: int | None | EllipsisType = ...):
         try:
@@ -404,13 +428,13 @@ class Webhook(c.Webhook[fluxer.Webhook, fluxer.Bot]):
     def name(self) -> str:
         return self.raw.name
 
-    async def send(self, username: str = "", avatar_url: str = "", *, initial_payload: dict | None = None, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
+    async def send(self, username: str = "", avatar_url: str = "", *args: SendMessageArgs, initial_payload: dict | None = None, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
         if not self.raw._http:
             raise RuntimeError("Cannot send with webhook without HTTPClient")
 
-        parsed = to_send_kwargs(kwargs)
+        dat = collect_args_kwargs(args, kwargs)
 
-        files = parsed.get("files", [])
+        files = dat.files
 
         route = self.raw._http._route(
             "POST",
@@ -419,16 +443,15 @@ class Webhook(c.Webhook[fluxer.Webhook, fluxer.Bot]):
             token=self.token,
         )
         payload = initial_payload or {}
-        if parsed.get("content") is not None:
-            payload["content"] = parsed["content"]
-        if parsed.get("embeds") is not None:
-            payload["embeds"] = [embed.to_dict() for embed in parsed["embeds"]]
+        payload["content"] = dat.content
+        if dat.embeds:
+            payload["embeds"] = [from_embed(embed).to_dict() for embed in dat.embeds]
         if username is not None:
             payload["username"] = username
         if avatar_url is not None:
             payload["avatar_url"] = avatar_url
-        if parsed.get("allowed_mentions") is not None:
-            payload["allowed_mentions"] = parsed["allowed_mentions"]
+        if dat.allowed_mentions:
+            payload["allowed_mentions"] = to_allowed_mentions(dat.allowed_mentions)
         params = {"wait": "true"}
         if files:
             form = aiohttp.FormData()
@@ -456,8 +479,9 @@ class Webhook(c.Webhook[fluxer.Webhook, fluxer.Bot]):
 
         return Message(fluxer.Message.from_data(data, self.raw._http), self.bot).context
 
-    async def edit(self, context: c.Context, **kwargs: Unpack[SendMessageKwargs]):
-        content = kwargs.get("content", "")
+    async def edit(self, context: c.Context, *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]):
+        dat = collect_args_kwargs(args, kwargs)
+        content = dat.content
         if context.message.has_reference:
            content = context.content.split("\n")[0] + content
 
@@ -465,7 +489,7 @@ class Webhook(c.Webhook[fluxer.Webhook, fluxer.Bot]):
             fhttp.Route("PATCH", "/webhooks/{wid}/{wtk}/messages/{mid}", wid=self.id, wtk=self.token, mid=context.id),
             json={
                 "content": content,
-                "embeds": [from_embed(embed).to_dict() for embed in kwargs.get("embeds", [])]
+                "embeds": [from_embed(embed).to_dict() for embed in dat.embeds]
             }
         )
 
@@ -477,10 +501,13 @@ class Webhook(c.Webhook[fluxer.Webhook, fluxer.Bot]):
         }, **kwargs)
 
 
-    async def reply(self, context: c.Context, username: str = "", avatar_url: str = "", mention_str: str | Literal[False] | None = None, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
+    async def reply(self, context: c.Context, username: str = "", avatar_url: str = "", mention_str: str | Literal[False] | None = None, *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
         mention_str = mention_str or context.author.mention
-        content = kwargs.get("content", "")
-        return await self.reply_internal(context, username, avatar_url, **(kwargs | {"content": f"-# ↩ {mention_str}\n{content}" if mention_str is not False else content}))
+        dat = collect_args_kwargs(args, kwargs)
+        content = dat.content
+        if mention_str is not False:
+            content = f"-# ↩ {mention_str}\n{content}"
+        return await self.reply_internal(context, username, avatar_url, **replace(dat, content=content).to_kwargs())
 
     async def get_message_data(self, context: c.Context) -> c.Message:
         actual_contents = context.content
@@ -572,13 +599,12 @@ class Context(c.Context[Message, Bot]):
             return True
         return False
 
-    async def reply(self, *, user_id_override: int | None = None, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
+    async def reply(self, *args: SendMessageArgs, user_id_override: int | None = None, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
+        data = collect_args_kwargs(args, kwargs)
         try:
-            ctx = await self.message.reply(**kwargs)
+            ctx = await self.message.reply(*args, **kwargs)
         except fluxer.HTTPException:
-            ctx = await self.channel.send(**(kwargs | {
-                "content": (f"<@{self.author.id}>\n" if not self.is_bot else "") + kwargs["content"]
-            }))
+            ctx = await self.channel.send(**replace(data, content=(f"<@{self.author.id}>\n" if not self.is_bot else "") + data.content).to_kwargs())
 
         Interactions.instance.add_interaction(ctx, Interaction(user_id_override or self.author.id, self.interact_to_delete))
         return ctx

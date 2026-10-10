@@ -65,10 +65,12 @@ class Attachment[Raw, Bot](ABC):
 
 
 class SendMessageKwargs(TypedDict):
-    content: str
+    content: NotRequired[str]
     embeds: NotRequired[list[Embed]]
     files: NotRequired[list[File]]
-    allowed_mentions: NotRequired[AllowedMention]
+    allowed_mentions: NotRequired[AllowedMention | None]
+
+type SendMessageArgs = str | list[Embed]
 
 
 class User[Raw, Bot](ABC):
@@ -142,7 +144,7 @@ class Channel[Raw, Bot](ABC):
     def mention(self) -> str: pass
 
     @abstractmethod
-    async def send(self, **kwargs: Unpack[SendMessageKwargs]) -> Context: pass
+    async def send(self, *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]) -> Context: pass
 
     @abstractmethod
     async def get_message(self, message_id: int) -> Message | None: pass
@@ -311,10 +313,10 @@ class Message[Raw, Bot](ABC):
     async def delete(self): pass
 
     @abstractmethod
-    async def reply(self, **kwargs: Unpack[SendMessageKwargs]) -> Context: pass
+    async def reply(self, *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]) -> Context: pass
 
     @abstractmethod
-    async def edit(self, **kwargs: Unpack[SendMessageKwargs]): pass
+    async def edit(self, *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]): pass
 
     @abstractmethod
     async def remove_reaction(self, emoji: str, user: int | None | EllipsisType = ...): pass
@@ -341,13 +343,13 @@ class Webhook[Raw, Bot](ABC):
     def name(self) -> str: pass
 
     @abstractmethod
-    async def send(self, username: str = "", avatar_url: str = "", **kwargs: Unpack[SendMessageKwargs]) -> Context: pass
+    async def send(self, username: str = "", avatar_url: str = "", *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]) -> Context: pass
 
     @abstractmethod
-    async def edit(self, context: Context, **kwargs: Unpack[SendMessageKwargs]): pass
+    async def edit(self, context: Context, *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]): pass
 
     @abstractmethod
-    async def reply(self, context: Context, username: str = "", avatar_url: str = "", mention_str: str | Literal[False] | None = None, **kwargs: Unpack[SendMessageKwargs]) -> Context: pass
+    async def reply(self, context: Context, username: str = "", avatar_url: str = "", mention_str: str | Literal[False] | None = None, *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]) -> Context: pass
 
     @abstractmethod
     async def get_message_data(self, context: Context) -> Message: pass
@@ -424,7 +426,7 @@ class Context[MessageT, BotT](ABC):
         self.message = message
 
     @abstractmethod
-    async def reply(self, *, user_id_override: int | None = None, **kwargs: Unpack[SendMessageKwargs]) -> Context: pass
+    async def reply(self, *args: SendMessageArgs, user_id_override: int | None = None, **kwargs: Unpack[SendMessageKwargs]) -> Context: pass
 
     @property
     @abstractmethod

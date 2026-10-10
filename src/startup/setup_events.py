@@ -56,6 +56,7 @@ async def handle_message(context: Context):
                     context.platform
                 ),
                 channel.id,
+                channel.parent_id,
                 context.author.id,
                 [role.id for role in roles][::-1]
             )

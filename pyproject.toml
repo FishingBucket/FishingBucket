@@ -5,7 +5,7 @@ description = "Fluxer proxying bot."
 requires-python = ">=3.14"
 dependencies = [
     "aiosqlite>=0.22.1",
-    "fluxer-py==0.4.1",
+    "fluxer-py @ git+https://github.com/FishingBucket/fluxer.py-patch-vendor",
     "typer",
     "textdistance[DamerauLevenshtein]",
     "cel-python",

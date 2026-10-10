@@ -197,6 +197,7 @@ class PermissionsRepository:
             self,
             guild: GuildDat,
             channel: int,
+            parent_channel_id: int | None,
             user: int,
             roles: list[int]
     ) -> GuildPermissions:
@@ -206,6 +207,8 @@ class PermissionsRepository:
 
         calc = overrides[IDType.BASE].get(0, AllowDenyPair.base()).apply(GuildPermissions.all())
         calc = channel_overrides.apply(calc)
+        if parent_channel_id and (parent_channel_overrides := overrides[IDType.CHANNEL].get(parent_channel_id)):
+            calc = parent_channel_overrides.apply(calc)
         for role in roles:
             if role in overrides[IDType.ROLE]:
                 calc = overrides[IDType.ROLE][role].apply(calc)

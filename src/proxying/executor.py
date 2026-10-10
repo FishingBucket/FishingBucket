@@ -20,7 +20,7 @@ async def get_webhook(context: Context) -> Webhook:
     webhook = None
 
     if webhook_id := await get_db().guilds.get_channel_webhook(context.message.channel_id, context.platform):
-        webhook = await context.get_bot.get_webhook(webhook_id)
+        webhook = await context.bot.get_webhook(webhook_id)
 
     if webhook is None:
         webhook = await context.channel.create_webhook(Config.instance.webhook)

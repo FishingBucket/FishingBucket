@@ -1,13 +1,15 @@
 import json
 from abc import abstractmethod, ABC
 from datetime import datetime
-from typing import Any, Literal
+from enum import Enum
+from types import EllipsisType
+from typing import Any, Literal, TypedDict, NotRequired, Unpack
 
 from ..backend.models import Platform
 
 
 class Embed:
-    def __init__(self, title: str, description: str, footer: str = None, thumbnail_url: str = None, is_rich: bool = True):
+    def __init__(self, title: str, description: str, footer: str = "", thumbnail_url: str = "", is_rich: bool = True):
         self.title = title
         self.description = description
         self.footer = footer
@@ -28,8 +30,22 @@ class File:
         self.data = data
 
 
-class Attachment(ABC):
-    def __init__(self, raw, bot):
+class AllowedMention:
+    def __init__(self, users: list[int], roles: list[int], everyone: bool, replied_user: bool):
+        self.users = users
+        self.roles = roles
+        self.everyone = everyone
+        self.replied_user = replied_user
+
+
+class MentionPreference(Enum):
+    NO_PREFERENCE = 0
+    PREFER_MENTION = 1
+    PREFER_NO_MENTION = 2
+
+
+class Attachment[Raw, Bot](ABC):
+    def __init__(self, raw: Raw, bot: Bot):
         self.raw = raw
         self.bot = bot
 
@@ -48,8 +64,15 @@ class Attachment(ABC):
         return json.loads((await self.read()).decode("utf-8"))
 
 
-class User(ABC):
-    def __init__(self, raw, bot):
+class SendMessageKwargs(TypedDict):
+    content: str
+    embeds: NotRequired[list[Embed]]
+    files: NotRequired[list[File]]
+    allowed_mentions: NotRequired[AllowedMention]
+
+
+class User[Raw, Bot](ABC):
+    def __init__(self, raw: Raw, bot: Bot):
         self.raw = raw
         self.bot = bot
 
@@ -73,18 +96,30 @@ class User(ABC):
     @abstractmethod
     def mention(self) -> str: pass
 
+    @property
+    @abstractmethod
+    def mention_preference(self) -> MentionPreference: pass
+
     @abstractmethod
     async def get_dm(self) -> Channel | None: pass
 
 
-class Channel(ABC):
-    def __init__(self, raw, bot):
+class Channel[Raw, Bot](ABC):
+    def __init__(self, raw: Raw, bot: Bot):
         self.raw = raw
         self.bot = bot
 
     @property
     @abstractmethod
     def id(self) -> int: pass
+
+    @property
+    @abstractmethod
+    def parent_id(self) -> int | None: pass
+
+    @property
+    @abstractmethod
+    def is_thread(self) -> bool: pass
 
     @property
     @abstractmethod
@@ -96,7 +131,7 @@ class Channel(ABC):
 
     @property
     @abstractmethod
-    def guild(self) -> Guild: pass
+    def guild(self) -> Guild | None: pass
 
     @property
     @abstractmethod
@@ -107,7 +142,7 @@ class Channel(ABC):
     def mention(self) -> str: pass
 
     @abstractmethod
-    async def send(self, content: str, embeds: list[Embed] = None, files: list[File] = None, **kwargs) -> Context: pass
+    async def send(self, **kwargs: Unpack[SendMessageKwargs]) -> Context: pass
 
     @abstractmethod
     async def get_message(self, message_id: int) -> Message | None: pass
@@ -116,14 +151,14 @@ class Channel(ABC):
     async def delete_message(self, message_id: int): pass
 
     @abstractmethod
-    async def create_webhook(self, name: str) -> Webhook: pass
+    async def create_webhook(self, name: str) -> Webhook | None: pass
 
     @abstractmethod
     async def permissions_for(self, member: Member) -> Permissions: pass
 
 
-class Guild(ABC):
-    def __init__(self, raw, bot):
+class Guild[Raw, Bot](ABC):
+    def __init__(self, raw: Raw, bot: Bot):
         self.raw = raw
         self.bot = bot
 
@@ -148,8 +183,8 @@ class Guild(ABC):
     async def get_member(self, user_id: int) -> Member | None: pass
 
 
-class Member(ABC):
-    def __init__(self, raw, bot):
+class Member[Raw, Bot](ABC):
+    def __init__(self, raw: Raw, bot: Bot):
         self.raw = raw
         self.bot = bot
 
@@ -165,12 +200,16 @@ class Member(ABC):
     @abstractmethod
     def display_name(self) -> str: pass
 
+    @property
+    @abstractmethod
+    def mention_preferences(self) -> MentionPreference: pass
+
     @abstractmethod
     async def roles(self) -> list[Role]: pass
 
 
-class Role(ABC):
-    def __init__(self, raw, bot):
+class Role[Raw, Bot](ABC):
+    def __init__(self, raw: Raw, bot: Bot):
         self.raw = raw
         self.bot = bot
 
@@ -195,8 +234,8 @@ class Role(ABC):
     def mention(self) -> str: pass
 
 
-class Message(ABC):
-    def __init__(self, raw, bot):
+class Message[Raw, Bot](ABC):
+    def __init__(self, raw: Raw, bot: Bot):
         self.raw = raw
         self.bot = bot
 
@@ -222,11 +261,22 @@ class Message(ABC):
 
     @property
     @abstractmethod
+    def thread_start(self) -> bool: pass
+
+    @abstractmethod
+    async def try_guess_allowed_mentions(self) -> AllowedMention: pass
+
+    @property
+    @abstractmethod
     def attachments(self) -> list[Attachment]: pass
 
     @property
     @abstractmethod
     def author(self) -> User: pass
+
+    @property
+    @abstractmethod
+    def member(self) -> Member: pass
 
     @property
     @abstractmethod
@@ -242,7 +292,7 @@ class Message(ABC):
 
     @property
     @abstractmethod
-    def guild(self) -> Guild: pass
+    def guild(self) -> Guild | None: pass
 
     @property
     @abstractmethod
@@ -262,20 +312,20 @@ class Message(ABC):
     async def delete(self): pass
 
     @abstractmethod
-    async def reply(self, content: str, embeds: list[Embed] = None, files: list[File] = None, **kwargs) -> Context: pass
+    async def reply(self, **kwargs: Unpack[SendMessageKwargs]) -> Context: pass
 
     @abstractmethod
-    async def edit(self, content: str, embeds: list[Embed] = None, **kwargs): pass
+    async def edit(self, **kwargs: Unpack[SendMessageKwargs]): pass
 
     @abstractmethod
-    async def remove_reaction(self, emoji: str | int, user: int | None | type(...) = ...): pass
+    async def remove_reaction(self, emoji: str, user: int | None | EllipsisType = ...): pass
 
     @abstractmethod
-    async def add_reaction(self, emoji: str | int): pass
+    async def add_reaction(self, emoji: str): pass
 
 
-class Webhook(ABC):
-    def __init__(self, raw, bot):
+class Webhook[Raw, Bot](ABC):
+    def __init__(self, raw: Raw, bot: Bot):
         self.raw = raw
         self.bot = bot
 
@@ -292,20 +342,20 @@ class Webhook(ABC):
     def name(self) -> str: pass
 
     @abstractmethod
-    async def send(self, content: str, username: str = None, avatar_url: str = None, mention: bool = False, embeds: list[Embed] = None, files: list[File] = None, **kwargs) -> Context: pass
+    async def send(self, username: str = "", avatar_url: str = "", **kwargs: Unpack[SendMessageKwargs]) -> Context: pass
 
     @abstractmethod
-    async def edit(self, context: Context, content: str, embeds: list[Embed] = None, **kwargs): pass
+    async def edit(self, context: Context, **kwargs: Unpack[SendMessageKwargs]): pass
 
     @abstractmethod
-    async def reply(self, context: Context, content: str, username: str = None, avatar_url: str = None, mention: bool = False, embeds: list[Embed] = None, files: list[File] = None, mention_str: str | Literal[False] = None) -> Context: pass
+    async def reply(self, context: Context, username: str = "", avatar_url: str = "", mention_str: str | Literal[False] | None = None, **kwargs: Unpack[SendMessageKwargs]) -> Context: pass
 
     @abstractmethod
     async def get_message_data(self, context: Context) -> Message: pass
 
 
-class Bot(ABC):
-    def __init__(self, raw, bot):
+class Bot[Raw, Bot](ABC):
+    def __init__(self, raw: Raw, bot: Bot):
         self.raw = raw
         self.bot = bot
 
@@ -327,9 +377,15 @@ class Bot(ABC):
     @abstractmethod
     async def get_webhook(self, webhook_id: int) -> Webhook | None: pass
 
+    @abstractmethod
+    async def get_channel(self, channel_id: int) -> Channel | None: pass
 
-class ReactionActionEvent(ABC):
-    def __init__(self, raw, bot):
+    @abstractmethod
+    async def get_guild(self, guild_id: int) -> Guild | None: pass
+
+
+class ReactionActionEvent[Raw, Bot](ABC):
+    def __init__(self, raw: Raw, bot: Bot):
         self.raw = raw
         self.bot = bot
 
@@ -348,8 +404,8 @@ class ReactionActionEvent(ABC):
     def action(self) -> Literal["ADD"] | Literal["REMOVE"]: pass
 
 
-class Permissions(ABC):
-    def __init__(self, raw, bot):
+class Permissions[Raw, Bot](ABC):
+    def __init__(self, raw: Raw, bot: Bot):
         self.raw = raw
         self.bot = bot
 
@@ -362,14 +418,14 @@ class Permissions(ABC):
     def manage_guild(self) -> bool: pass
 
 
-class Context(ABC):
-    def __init__(self, platform: Platform, bot: Bot, message: Message):
+class Context[MessageT, BotT](ABC):
+    def __init__(self, platform: Platform, bot: BotT, message: MessageT):
         self.platform = platform
         self.bot = bot
         self.message = message
 
     @abstractmethod
-    async def reply(self, content: str, embeds: list[Embed] = None, files: list[File] = None, **kwargs) -> Context: pass
+    async def reply(self, *, user_id_override: int | None = None, **kwargs: Unpack[SendMessageKwargs]) -> Context: pass
 
     @property
     @abstractmethod
@@ -381,7 +437,7 @@ class Context(ABC):
 
     @property
     @abstractmethod
-    def guild(self) -> Guild: pass
+    def guild(self) -> Guild | None: pass
 
     @property
     @abstractmethod
@@ -407,9 +463,8 @@ class Context(ABC):
     @abstractmethod
     async def get_this_channel(self) -> Channel: pass
 
-    @property
     @abstractmethod
-    def get_bot(self) -> Bot: pass
+    async def get_this_guild(self) -> Guild | None: pass
 
     @abstractmethod
     async def get_wh_message_data(self, context: Context) -> Message: pass

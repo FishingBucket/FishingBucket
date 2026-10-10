@@ -16,28 +16,55 @@ Fluxer and Discord bot to forward messages into faux-profiles called "proxies", 
 Tupperbox and PluralKit.
 
 
-## Documentation
+# Documentation
 
 User-facing documentation is coming soon!
 
 
-## Self-Hosting
+# Self-Hosting
 
 There are two ways to self-host FishingBucket: the first way is through running the raw Python source, and the second way
 is running on Docker.
 
-### From Source
+## From Source
 
 To self-host FishingBucket from source, ensure that you have [Python 3.14](https://www.python.org/downloads/) installed.
-Furthermore, obtain either [uv](https://docs.astral.sh/uv/) or [pip](https://pypi.org/project/pip/) for
-dependency management.
+Furthermore, obtain either [uv](https://docs.astral.sh/uv/) or [pip](https://pypi.org/project/pip/) for dependency management. [Git](https://git-scm.com/)
+should also be installed to fetch the repository and the source code.
 
-To get started with self-hosting, make a virtual environment and install the dependencies of the bot at the project root:
+### Obtaining Source Code
+
+To fetch the source code, execute the command in the parent directory of where you want to store your copy
+of FishingBucket:
+
+1. Clone the repository into the subdirectory `FishingBucket/`
+   ```shell
+   git clone --recurse-submodules https://github.com/FishingBucket/FishingBucket
+   ```
+2. Change current working directory into project root
+   ```shell
+   cd FishingBucket
+   ```
+
+Now, you should be able to move onto setting up your instance.
+
+### Setup
+
+To start setting up the instance, make a virtual environment and install the dependencies of the bot at the project root:
 
 - With `pip`:
-  ```shell
-  python -m pip install -e .
-  ```
+  - Windows:
+    ```shell
+    python -m venv .venv
+    .venv\Scripts\activate
+    python -m pip install -e .
+    ```
+  - Unix or macOS:
+    ```shell
+    python -m venv .venv
+    source .venv/bin/activate
+    python -m pip install -e .
+    ```
 - With `uv`:
   ```shell
   uv sync
@@ -45,7 +72,7 @@ To get started with self-hosting, make a virtual environment and install the dep
 
 After the packages are installed, run the self-hosting wizard in the project root:
 
-- With `python` and venv:
+- With `python` and inside venv:
   ```shell
   python scripts/initialize.py wizard
   ```
@@ -65,6 +92,34 @@ After the scripts finish, the setup and configurations will be good to go. What'
   uv run main.py path/to/config.json
   ```
 
-### Docker
+### Updating Code
+
+To update the source code for FishingBucket, make sure that you stopped your current copy of FishingBucket, then, run the
+following commands in the project root:
+
+1. Update source code:
+   ```shell
+   git pull --recurse-submodules
+   ```
+2. Update dependencies:
+   - With `pip` and inside venv:
+     ```shell
+     python -m pip install -e .
+     ```
+   - With `uv`:
+     ```shell
+     uv sync
+     ```
+3. Run redownload script:
+   - With `python` and inside venv:
+     ```shell
+     python scripts/initialize.py redownload
+     ```
+   - With `uv`:
+     ```shell
+     uv run scripts/initialize.py redownload
+     ```
+
+## Docker
 
 Docker support is coming to FishingBucket soon! Keep your eyes peeled and watch the repository for updates!

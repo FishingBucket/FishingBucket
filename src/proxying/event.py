@@ -32,6 +32,7 @@ async def on_user_message(context: Context):
     permission = await get_db().permissions.compute_effective_permissions(
         guild,
         channel.id,
+        channel.parent_id,
         context.author.id,
         [role.id for role in roles][::-1],
     )

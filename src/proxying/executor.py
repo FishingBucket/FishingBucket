@@ -21,15 +21,17 @@ async def get_webhook(context: Context) -> Webhook | None:
     webhook = None
 
     effective_channel_id = context.message.channel_id
-    if context.channel.is_thread and (parent_id := context.message.channel.parent_id):
+    this_channel = await context.get_this_channel()
+
+    if this_channel.is_thread and (parent_id := context.message.channel.parent_id):
         effective_channel_id = parent_id
 
     if webhook_id := await get_db().guilds.get_channel_webhook(effective_channel_id, context.platform):
         webhook = await context.bot.get_webhook(webhook_id)
 
     if webhook is None:
-        effective_channel = context.channel
-        if context.channel.is_thread:
+        effective_channel = this_channel
+        if this_channel.is_thread:
             effective_channel = await context.get_channel(effective_channel_id) # type: ignore # guaranteed i think
             assert effective_channel is not None
         webhook = await effective_channel.create_webhook(Config.instance.webhook)

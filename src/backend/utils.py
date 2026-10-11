@@ -31,7 +31,9 @@ async def convert_attachments(message_attachments: list[Attachment]) -> list[Fil
         parsed_attachments.append(File(
             attachment.filename,
             "",
-            await attachment.read()
+            await attachment.read(),
+            attachment.spoiler,
+            attachment.alt
         ))
     return parsed_attachments
 

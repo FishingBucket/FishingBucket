@@ -30,7 +30,12 @@ def from_embed(embed: Embed) -> fluxer.Embed:
 
 
 def from_file(file: File) -> fluxer.File:
-    return fluxer.File(BytesIO(file.data), filename=file.filename)
+    return fluxer.File(BytesIO(file.data), filename=file.filename, description=file.alt, flags=(1 << 3) if file.spoiler else 0)
+
+def as_mp_file(file: File) -> dict:
+    d = from_file(file).to_dict()
+    d.pop("data")
+    return d
 
 FluxerAllowedMentions = fluxer.models.message.AllowedMentions
 
@@ -90,6 +95,14 @@ class Attachment(c.Attachment[fluxer.models.Attachment, fluxer.Bot]):
     @property
     def url(self) -> str:
         return self.raw.url
+
+    @property
+    def alt(self) -> str:
+        return self.raw.description or ""
+
+    @property
+    def spoiler(self) -> bool:
+        return bool(self.raw.flags & (1 << 3))
 
     async def read(self) -> bytes:
         async with ClientSession() as session:
@@ -464,7 +477,7 @@ class Webhook(c.Webhook[fluxer.Webhook, fluxer.Bot]):
         if files:
             form = aiohttp.FormData()
             payload["attachments"] = [
-                {"id": i, "filename": file.filename} for i, file in enumerate(files)
+                ({"id": i} | as_mp_file(file)) for i, file in enumerate(files)
             ]
             form.add_field(
                 "payload_json",

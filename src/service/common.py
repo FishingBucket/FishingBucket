@@ -24,10 +24,12 @@ class RawEmbed(Embed):
 
 
 class File:
-    def __init__(self, filename: str, mime_type: str, data: bytes):
+    def __init__(self, filename: str, mime_type: str, data: bytes, spoiler: bool = False, alt: str = ""):
         self.filename = filename
         self.mime_type = mime_type
         self.data = data
+        self.spoiler = spoiler
+        self.alt = alt
 
 
 class AllowedMention:
@@ -56,6 +58,14 @@ class Attachment[Raw, Bot](ABC):
     @property
     @abstractmethod
     def url(self) -> str: pass
+
+    @property
+    @abstractmethod
+    def alt(self) -> str: pass
+
+    @property
+    @abstractmethod
+    def spoiler(self) -> bool: pass
 
     @abstractmethod
     async def read(self) -> bytes: pass

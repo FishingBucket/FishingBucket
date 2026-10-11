@@ -19,7 +19,7 @@ def to_embed(embed: Embed) -> discord.Embed:
 
 
 def to_file(file: File) -> discord.File:
-    return discord.File(BytesIO(file.data), filename=file.filename)
+    return discord.File(BytesIO(file.data), filename=file.filename, description=file.alt, spoiler=file.spoiler)
 
 
 class _Snowflake(discord.abc.Snowflake):
@@ -77,6 +77,14 @@ class Attachment(c.Attachment[discord.Attachment, discord.Bot]):
     @property
     def url(self) -> str:
         return self.raw.url
+
+    @property
+    def alt(self) -> str:
+        return self.raw.description or ""
+
+    @property
+    def spoiler(self) -> bool:
+        return self.raw.is_spoiler() or bool(self.raw.flags.value & (1 << 3))
 
     async def read(self) -> bytes:
         return await self.raw.read()

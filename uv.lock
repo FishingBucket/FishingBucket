@@ -238,7 +238,7 @@ requires-dist = [
     { name = "cel-python" },
     { name = "expr-dice-roller", specifier = ">=0.0.6" },
     { name = "fastapi", specifier = ">=0.136.1" },
-    { name = "fluxer-py", git = "https://github.com/FishingBucket/fluxer.py-patch-vendor?rev=520929927d11a927cf3475155c8f864f821eb226" },
+    { name = "fluxer-py", git = "https://github.com/FishingBucket/fluxer.py-patch-vendor?rev=b00e801ff1ccca20dcd74219692ce86dd954eb54" },
     { name = "humanfriendly", specifier = ">=10.0" },
     { name = "json5" },
     { name = "lorem-text", specifier = ">=3.0" },
@@ -253,7 +253,7 @@ requires-dist = [
 [[package]]
 name = "fluxer-py"
 version = "0.4.3"
-source = { git = "https://github.com/FishingBucket/fluxer.py-patch-vendor?rev=520929927d11a927cf3475155c8f864f821eb226#520929927d11a927cf3475155c8f864f821eb226" }
+source = { git = "https://github.com/FishingBucket/fluxer.py-patch-vendor?rev=b00e801ff1ccca20dcd74219692ce86dd954eb54#b00e801ff1ccca20dcd74219692ce86dd954eb54" }
 dependencies = [
     { name = "aiohttp" },
     { name = "emoji" },

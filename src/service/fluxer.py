@@ -645,6 +645,9 @@ class Context(c.Context[Message, Bot]):
     async def get_member(self, user_id: int) -> c.Member | None:
         if guild := self.guild:
             return await guild.get_member(user_id)
+        channel = await self.get_this_channel()
+        if channel.guild_id and (guild := await self.bot.get_guild(channel.guild_id)):
+            return await guild.get_member(user_id)
         return None
 
     async def get_user(self, user_id: int) -> c.User | None:

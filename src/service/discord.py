@@ -32,8 +32,8 @@ def to_allowed_mentions(allowed_mentions: AllowedMention | None) -> discord.Allo
         return discord.AllowedMentions.all()
     return discord.AllowedMentions(
         everyone=allowed_mentions.everyone,
-        users=[_Snowflake(user) for user in allowed_mentions.users],
-        roles=[_Snowflake(role) for role in allowed_mentions.roles],
+        users=[_Snowflake(user) for user in allowed_mentions.users] if isinstance(allowed_mentions.users, list) else allowed_mentions.users,
+        roles=[_Snowflake(role) for role in allowed_mentions.roles] if isinstance(allowed_mentions.roles, list) else allowed_mentions.roles,
         replied_user=allowed_mentions.replied_user
     )
 
@@ -249,7 +249,7 @@ class Member(c.Member[discord.Member, discord.Bot]):
         return self.raw.display_name
 
     @property
-    def mention_preferences(self) -> MentionPreference:
+    def mention_preference(self) -> MentionPreference:
         return MentionPreference.NO_PREFERENCE
 
     async def roles(self) -> list[c.Role]:
@@ -339,16 +339,15 @@ class Message(c.Message[discord.Message, discord.Bot]):
         return Guild(self.raw.guild, self.bot)
 
     @property
-    def thread_start(self) -> bool:
-        return self.raw.type == discord.MessageType.thread_starter_message
+    def text_based(self) -> bool:
+        return self.raw.type in {discord.MessageType.default, discord.MessageType.reply}
 
-    async def try_guess_allowed_mentions(self) -> AllowedMention:
-        mentions = self.raw.mentions
-        users = [mention.id for mention in mentions]
-        mention_roles = self.raw.role_mentions
-        roles = [role.id for role in mention_roles]
-        ref = await self.get_reference()
-        return AllowedMention(users, roles, self.raw.mention_everyone, ref.author.id in users if ref else False)
+    @property
+    def mentions_everyone(self) -> bool:
+        return self.raw.mention_everyone
+
+    async def mentions_original(self) -> bool:
+        return bool((msg := await self.get_reference()) and msg.author.id in [user.id for user in self.raw.mentions])
 
     @property
     def context(self) -> c.Context:
@@ -412,10 +411,12 @@ class Webhook(c.Webhook[discord.Webhook, discord.Bot]):
     def name(self) -> str:
         return cast(str, self.raw.name or "")
 
-    async def send(self, username: str = "", avatar_url: str = "", *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
+    async def send(self, username: str = "", avatar_url: str = "", *args: SendMessageArgs, thread_id: int | None = None, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
         message = await self.raw.send(
             username=username,
             avatar_url=avatar_url,
+            wait=True,
+            thread=thread_id and _Snowflake(thread_id), # type: ignore
             **to_send_kwargs(collect_args_kwargs(args, kwargs))
         )
         return Message(message, self.bot).context
@@ -433,20 +434,20 @@ class Webhook(c.Webhook[discord.Webhook, discord.Bot]):
     REPLY_DESCRIPTION_REGEX = re.compile(r"\[Replying to]\(https://discord\.com/channels/(?:\d+?|@me)/\d+?/(\d+?)\) .+?:")
 
 
-    async def reply(self, context: c.Context, username: str = "", avatar_url: str = "", mention_str: str | Literal[False] | None = None, *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
+    async def reply(self, context: c.Context, username: str = "", avatar_url: str = "", mention_str: str | Literal[False] | None = None, *args: SendMessageArgs, thread_id: int | None = None, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
         mention_str = mention_str or context.author.mention
         data = collect_args_kwargs(args, kwargs)
         if mention_str is not False:
             data.content = f"-# ↩ {mention_str}\n{data.content}"
         data.embeds = await self.transform_embeds(data.embeds, context)
-        send_kwargs = to_send_kwargs(data)
         return await self.send(
             username=username,
             avatar_url=avatar_url,
-            **send_kwargs
+            thread_id=thread_id,
+            **data.to_kwargs()
         )
 
-    async def edit(self, context: c.Context, *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]):
+    async def edit(self, context: c.Context, *args: SendMessageArgs, thread_id: int | None = None, **kwargs: Unpack[SendMessageKwargs]):
         data = (await self.get_message_data(context)).context
         collected = collect_args_kwargs(args, kwargs)
         content = collected.content
@@ -454,6 +455,7 @@ class Webhook(c.Webhook[discord.Webhook, discord.Bot]):
             content = context.content.split("\n")[0] + "\n" + content
         await self.raw.edit_message(
             context.id,
+            thread_id=thread_id and _Snowflake(thread_id), # type: ignore
             **(to_send_kwargs(replace(collected, content=content)))
         )
 
@@ -532,7 +534,7 @@ class Bot(c.Bot[discord.Bot, discord.Bot]):
 
 
 class ReactionActionEvent(c.ReactionActionEvent[discord.RawReactionActionEvent, discord.Bot]):
-    async def context(self) -> Context:
+    async def context(self) -> c.Context:
         return Message(await (await self.bot.fetch_channel(self.raw.channel_id)).fetch_message(self.raw.message_id), self.bot).context # type: ignore # I gie up
 
     async def user(self) -> User:

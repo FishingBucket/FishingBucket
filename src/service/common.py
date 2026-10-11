@@ -31,7 +31,7 @@ class File:
 
 
 class AllowedMention:
-    def __init__(self, users: list[int], roles: list[int], everyone: bool, replied_user: bool):
+    def __init__(self, users: list[int] | bool, roles: list[int] | bool, everyone: bool, replied_user: bool):
         self.users = users
         self.roles = roles
         self.everyone = everyone
@@ -204,7 +204,7 @@ class Member[Raw, Bot](ABC):
 
     @property
     @abstractmethod
-    def mention_preferences(self) -> MentionPreference: pass
+    def mention_preference(self) -> MentionPreference: pass
 
     @abstractmethod
     async def roles(self) -> list[Role]: pass
@@ -263,10 +263,14 @@ class Message[Raw, Bot](ABC):
 
     @property
     @abstractmethod
-    def thread_start(self) -> bool: pass
+    def text_based(self) -> bool: pass
+
+    @property
+    @abstractmethod
+    def mentions_everyone(self) -> bool: pass
 
     @abstractmethod
-    async def try_guess_allowed_mentions(self) -> AllowedMention: pass
+    async def mentions_original(self) -> bool: pass
 
     @property
     @abstractmethod
@@ -343,13 +347,13 @@ class Webhook[Raw, Bot](ABC):
     def name(self) -> str: pass
 
     @abstractmethod
-    async def send(self, username: str = "", avatar_url: str = "", *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]) -> Context: pass
+    async def send(self, username: str = "", avatar_url: str = "", *args: SendMessageArgs, thread_id: int | None = None, **kwargs: Unpack[SendMessageKwargs]) -> Context: pass
 
     @abstractmethod
-    async def edit(self, context: Context, *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]): pass
+    async def edit(self, context: Context, *args: SendMessageArgs, thread_id: int | None = None, **kwargs: Unpack[SendMessageKwargs]): pass
 
     @abstractmethod
-    async def reply(self, context: Context, username: str = "", avatar_url: str = "", mention_str: str | Literal[False] | None = None, *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]) -> Context: pass
+    async def reply(self, context: Context, username: str = "", avatar_url: str = "", mention_str: str | Literal[False] | None = None, *args: SendMessageArgs, thread_id: int | None = None, **kwargs: Unpack[SendMessageKwargs]) -> Context: pass
 
     @abstractmethod
     async def get_message_data(self, context: Context) -> Message: pass
@@ -398,7 +402,7 @@ class ReactionActionEvent[Raw, Bot](ABC):
 
     @property
     @abstractmethod
-    def emoji(self) -> str | int: pass
+    def emoji(self) -> str: pass
 
     @property
     @abstractmethod
@@ -419,7 +423,7 @@ class Permissions[Raw, Bot](ABC):
     def manage_guild(self) -> bool: pass
 
 
-class Context[MessageT, BotT](ABC):
+class Context[MessageT: Message = Message, BotT: Bot = Bot](ABC):
     def __init__(self, platform: Platform, bot: BotT, message: MessageT):
         self.platform = platform
         self.bot = bot

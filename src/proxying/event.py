@@ -11,7 +11,7 @@ from ..backend.logging import start_log
 from ..backend.models import GuildDat, MessageDat
 from ..backend.utils import quote, DelimitedString
 from ..commands.specific import get_uid_nullable
-from ..service import Context, Webhook, Embed
+from ..service import Context, Embed
 
 print, error = start_log("send_proxy", "-prox")
 
@@ -19,6 +19,9 @@ async def on_user_message(context: Context):
     channel = await context.get_this_channel()
 
     if channel.dm:
+        return
+
+    if not context.message.text_based:
         return
 
     owner = await get_uid_nullable(context)
@@ -45,7 +48,9 @@ async def on_user_message(context: Context):
             message_link = await get_db().guilds.latest_message_link_from_user(context.channel.id, context.platform, owner)
             if not message_link or (message := await context.channel.get_message(message_link.dat.message_id)) is None:
                 return
-            webhook: Webhook = await get_webhook(message.context)
+            webhook = await get_webhook(message.context)
+            if not webhook:
+                return
             new_context = await webhook.get_message_data(message.context)
             if (proxy := await get_db().proxies.get(message_link.proxy_id)) is None:
                 return
@@ -79,15 +84,17 @@ async def on_user_message(context: Context):
                     return
 
                 try:
-                    ctx, proxy_effective_name = await send_proxy_message(
+                    sent_dat = await send_proxy_message(
                         proxied_message.proxy,
                         proxied_message.message,
                         context,
                         context.message.attachments if i == 0 else [],
-                        True,
                         i == 0,
                         permission
                     )
+                    if not sent_dat:
+                        return
+                    ctx, proxy_effective_name = sent_dat
                 except Exception as e:
                     error(e)
                     await context.reply(f"Messages could not be proxied! `{e}`")

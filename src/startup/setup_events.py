@@ -15,8 +15,8 @@ from ..proxying.event import on_user_message
 from ..proxying.executor import edit_proxy_message
 from ..service import Context, Server, FluxerServer, DiscordServer, FluxerContext, DiscordContext, \
     ReactionActionEvent, Embed, Message
-from ..service.fluxer import Message as FluxerMessage, ReactionActionEvent as FluxerReactionActionEvent
-from ..service.discord import Message as DiscordMessage, ReactionActionEvent as DiscordReactionActionEvent
+from ..service.fluxer import Message as FluxerMessage, ReactionActionEvent as FluxerReactionActionEvent, Bot as FluxerBot
+from ..service.discord import Message as DiscordMessage, ReactionActionEvent as DiscordReactionActionEvent, Bot as DiscordBot
 from ..backend.config import Config
 from ..commands.generic import get_command_awaitable, ParseError, EarlyExitException
 
@@ -166,12 +166,12 @@ def setup(server: Server):
 def setup_fluxer(server: FluxerServer):
     @server.event
     async def on_message(message: fluxer.Message):
-        context = FluxerContext(FluxerMessage(message, server.bot), server.bot)
+        context = FluxerContext(FluxerMessage(message, server.bot), FluxerBot(server.bot, server.bot))
         await message_wrapper(context)
 
     @server.event
     async def on_message_edit(message: fluxer.Message):
-        context = FluxerContext(FluxerMessage(message, server.bot), server.bot)
+        context = FluxerContext(FluxerMessage(message, server.bot), FluxerBot(server.bot, server.bot))
         await message_wrapper(context)
 
     @server.event
@@ -192,12 +192,12 @@ def setup_discord(server: DiscordServer):
     @server.event
     async def on_message(message: discord.Message):
         if message.type in (discord.MessageType.default, discord.MessageType.reply):
-            context = DiscordContext(DiscordMessage(message, server.bot), server.bot)
+            context = DiscordContext(DiscordMessage(message, server.bot), DiscordBot(server.bot, server.bot))
             await message_wrapper(context)
 
     @server.event
     async def on_message_edit(before: discord.Message, after: discord.Message):
-        context = DiscordContext(DiscordMessage(after, server.bot), server.bot)
+        context = DiscordContext(DiscordMessage(after, server.bot), DiscordBot(server.bot, server.bot))
         await message_wrapper(context)
 
     @server.event

@@ -244,7 +244,7 @@ async def paged(context: Context, title: str, pages: list[str], start_page: int,
                 if next_page is None:
                     return False
 
-                await message.edit("", embeds=[next_page] + (additional_embeds or []))
+                await message.edit(embeds=[next_page] + (additional_embeds or []))
 
             return False
 

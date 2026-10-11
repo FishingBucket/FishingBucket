@@ -26,7 +26,7 @@ class _FluxerRawEmbed(fluxer.Embed):
 
 def from_embed(embed: Embed) -> fluxer.Embed:
     if isinstance(embed, RawEmbed): return _FluxerRawEmbed(embed.data)
-    return fluxer.Embed(embed.title, embed.description, footer={"text": embed.footer}, thumbnail={"url": embed.thumbnail_url})
+    return fluxer.Embed(embed.title, embed.description, footer={"text": embed.footer} if embed.footer else None, thumbnail={"url": embed.thumbnail_url} if embed.thumbnail_url else None)
 
 
 def from_file(file: File) -> fluxer.File:
@@ -39,8 +39,8 @@ def to_allowed_mentions(allowed_mentions: AllowedMention | None) -> FluxerAllowe
         return FluxerAllowedMentions(True, True, True, True) # type: ignore
     return FluxerAllowedMentions(
         everyone=allowed_mentions.everyone,
-        users=allowed_mentions.users,
-        roles=allowed_mentions.roles,
+        users=allowed_mentions.users, # type: ignore
+        roles=allowed_mentions.roles, # type: ignore
         replied_user=allowed_mentions.replied_user
     )
 
@@ -63,9 +63,15 @@ class SendMessageData:
 def to_send_kwargs(dat: SendMessageData) -> dict:
     return {
         "content": dat.content,
-        "embeds": [from_embed(e) for e in dat.embeds],
-        "files": [from_file(f) for f in dat.files],
+        "embeds": [from_embed(e).to_dict() for e in dat.embeds],
+        "files": [from_file(f).to_dict() for f in dat.files],
         "allowed_mentions": to_allowed_mentions(dat.allowed_mentions)
+    }
+
+def edit_kwargs(kwargs: dict) -> dict:
+    return {
+        "content": kwargs["content"],
+        "embeds": kwargs["embeds"]
     }
 
 def collect_args_kwargs(args: Sequence[SendMessageArgs], kwargs: SendMessageKwargs) -> SendMessageData:
@@ -278,7 +284,7 @@ class Member(c.Member[fluxer.GuildMember, fluxer.Bot]):
         return self.raw.display_name
 
     @property
-    def mention_preferences(self) -> MentionPreference:
+    def mention_preference(self) -> MentionPreference:
         return MentionPreference(self.raw.mention_flags)
 
     async def roles(self) -> list[c.Role]:
@@ -367,15 +373,15 @@ class Message(c.Message[fluxer.Message, fluxer.Bot]):
         return Guild(self.raw.guild, self.bot)
 
     @property
-    def thread_start(self) -> bool:
-        return self.raw.type == 21
+    def text_based(self) -> bool:
+        return self.raw.type in {0, 19}
 
-    async def try_guess_allowed_mentions(self) -> AllowedMention:
-        mentions = self.raw.mentions
-        users = [mention.id for mention in mentions]
-        roles = self.raw.mention_roles
-        ref = await self.get_reference()
-        return AllowedMention(users, roles, self.raw.mentions_everyone, ref.author.id in users if ref else False)
+    @property
+    def mentions_everyone(self) -> bool:
+        return self.raw.mentions_everyone
+
+    async def mentions_original(self) -> bool:
+        return bool((msg := await self.get_reference()) and msg.author.id in [user.id for user in self.raw.mentions])
 
     @property
     def context(self) -> c.Context:
@@ -400,7 +406,7 @@ class Message(c.Message[fluxer.Message, fluxer.Bot]):
         return Message(message, self.bot).context
 
     async def edit(self, *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]):
-        await self.raw.edit(**to_send_kwargs(collect_args_kwargs(args, kwargs)))
+        await self.raw.edit(**edit_kwargs(to_send_kwargs(collect_args_kwargs(args, kwargs))))
 
     async def remove_reaction(self, emoji: str, user: int | None | EllipsisType = ...):
         try:
@@ -428,7 +434,7 @@ class Webhook(c.Webhook[fluxer.Webhook, fluxer.Bot]):
     def name(self) -> str:
         return self.raw.name
 
-    async def send(self, username: str = "", avatar_url: str = "", *args: SendMessageArgs, initial_payload: dict | None = None, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
+    async def send(self, username: str = "", avatar_url: str = "", *args: SendMessageArgs, thread_id: int | None = None, initial_payload: dict | None = None, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
         if not self.raw._http:
             raise RuntimeError("Cannot send with webhook without HTTPClient")
 
@@ -451,8 +457,10 @@ class Webhook(c.Webhook[fluxer.Webhook, fluxer.Bot]):
         if avatar_url is not None:
             payload["avatar_url"] = avatar_url
         if dat.allowed_mentions:
-            payload["allowed_mentions"] = to_allowed_mentions(dat.allowed_mentions)
+            payload["allowed_mentions"] = to_allowed_mentions(dat.allowed_mentions).to_json()
         params = {"wait": "true"}
+        if thread_id:
+            params["thread_id"] = thread_id
         if files:
             form = aiohttp.FormData()
             payload["attachments"] = [
@@ -479,7 +487,7 @@ class Webhook(c.Webhook[fluxer.Webhook, fluxer.Bot]):
 
         return Message(fluxer.Message.from_data(data, self.raw._http), self.bot).context
 
-    async def edit(self, context: c.Context, *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]):
+    async def edit(self, context: c.Context, *args: SendMessageArgs, thread_id: int | None = None, **kwargs: Unpack[SendMessageKwargs]):
         dat = collect_args_kwargs(args, kwargs)
         content = dat.content
         if context.message.has_reference:
@@ -490,24 +498,25 @@ class Webhook(c.Webhook[fluxer.Webhook, fluxer.Bot]):
             json={
                 "content": content,
                 "embeds": [from_embed(embed).to_dict() for embed in dat.embeds]
-            }
+            },
+            params={"thread_id": thread_id} if thread_id else None
         )
 
-    async def reply_internal(self, context: c.Context, username: str = "", avatar_url: str = "", **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
-        return await self.send(username, avatar_url, initial_payload={
+    async def reply_internal(self, context: c.Context, username: str = "", avatar_url: str = "", thread_id: int | None = None, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
+        return await self.send(username, avatar_url, thread_id=thread_id, initial_payload={
             "message_reference": {
                 "message_id": str(context.id)
             }
         }, **kwargs)
 
 
-    async def reply(self, context: c.Context, username: str = "", avatar_url: str = "", mention_str: str | Literal[False] | None = None, *args: SendMessageArgs, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
+    async def reply(self, context: c.Context, username: str = "", avatar_url: str = "", mention_str: str | Literal[False] | None = None, *args: SendMessageArgs, thread_id: int | None = None, **kwargs: Unpack[SendMessageKwargs]) -> c.Context:
         mention_str = mention_str or context.author.mention
         dat = collect_args_kwargs(args, kwargs)
         content = dat.content
         if mention_str is not False:
             content = f"-# ↩ {mention_str}\n{content}"
-        return await self.reply_internal(context, username, avatar_url, **replace(dat, content=content).to_kwargs())
+        return await self.reply_internal(context, username, avatar_url, thread_id=thread_id, **replace(dat, content=content).to_kwargs())
 
     async def get_message_data(self, context: c.Context) -> c.Message:
         actual_contents = context.content
@@ -569,7 +578,7 @@ class ReactionActionEvent(c.ReactionActionEvent[fluxer.models.RawReactionActionE
 
     @property
     def emoji(self) -> str:
-        return self.raw.emoji.name or str(self.raw.emoji.id)
+        return self.raw.emoji.unicode or self.raw.emoji.name or str(self.raw.emoji.id)
 
     @property
     def action(self) -> Literal["ADD"] | Literal["REMOVE"]:

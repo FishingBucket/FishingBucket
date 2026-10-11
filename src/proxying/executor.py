@@ -11,22 +11,33 @@ from ..backend.database.user import UserID
 from ..backend.models import Proxy, MessageDat, GuildDat
 from ..backend.utils import convert_attachments, quote, DelimitedString
 from ..service import Webhook, Context, Attachment, Embed
+from ..service.common import AllowedMention, MentionPreference
 
 webhook_cache = TTLCache[int, Webhook](2048, 3600)
 
 
-async def get_webhook(context: Context) -> Webhook:
+async def get_webhook(context: Context) -> Webhook | None:
     if webhook := webhook_cache.get(context.message.channel_id): return webhook
     webhook = None
 
-    if webhook_id := await get_db().guilds.get_channel_webhook(context.message.channel_id, context.platform):
+    effective_channel_id = context.message.channel_id
+    if context.channel.is_thread and (parent_id := context.message.channel.parent_id):
+        effective_channel_id = parent_id
+
+    if webhook_id := await get_db().guilds.get_channel_webhook(effective_channel_id, context.platform):
         webhook = await context.bot.get_webhook(webhook_id)
 
     if webhook is None:
-        webhook = await context.channel.create_webhook(Config.instance.webhook)
-        await get_db().guilds.put_channel_webhook(context.message.channel_id, context.platform, webhook.id)
+        effective_channel = context.channel
+        if context.channel.is_thread:
+            effective_channel = await context.get_channel(effective_channel_id) # type: ignore # guaranteed i think
+            assert effective_channel is not None
+        webhook = await effective_channel.create_webhook(Config.instance.webhook)
+        if webhook:
+            await get_db().guilds.put_channel_webhook(effective_channel_id, context.platform, webhook.id)
 
-    webhook_cache.set(context.message.channel_id, webhook)
+    if webhook:
+        webhook_cache.set(context.message.channel_id, webhook)
     return webhook
 
 
@@ -35,22 +46,41 @@ async def send_proxy_message(
         message: str,
         context: Context,
         attachments: list[Attachment],
-        mention: bool,
         do_reply: bool,
         permissions: GuildPermissions
-) -> tuple[Context, str]:
-    webhook: Webhook = await get_webhook(context)
+) -> tuple[Context, str] | None:
+    webhook = await get_webhook(context)
+    if not webhook:
+        return None
+
     channel = await context.get_this_channel()
 
     mention_str: str | Literal[False] = False
     ref = await context.message.get_reference()
 
+    mention_pref = MentionPreference.NO_PREFERENCE
     if ref:
         lnk = await get_db().guilds.get_message_link(MessageDat(ref.id, ref.channel_id, context.platform))
         if lnk and (parent_proxy := await get_db().proxies.get(lnk.proxy_id)):
+            mentioned_user = await context.get_member(lnk.platform_user) or await context.get_user(lnk.platform_user)
+            mention_pref = mentioned_user.mention_preference if mentioned_user else MentionPreference.NO_PREFERENCE
             mention_str = f"{parent_proxy.name} (<@{lnk.platform_user}>)"
         else:
+            try:
+                mentioned_user = await ref.member()
+            except: # mysterious exception
+                mentioned_user = ref.author
+            mention_pref = mentioned_user.mention_preference if mentioned_user else MentionPreference.NO_PREFERENCE
             mention_str = ref.author.mention
+
+    allowed_mentions = AllowedMention(
+        mention_pref != MentionPreference.PREFER_NO_MENTION, # temporary solution rn
+        True,
+        context.message.mentions_everyone,
+        mention_pref != MentionPreference.PREFER_NO_MENTION
+    )
+
+    thread_id = channel.id if channel.is_thread else None
 
     message, embeds = await modify_message(
         proxy.owner,
@@ -63,17 +93,22 @@ async def send_proxy_message(
 
     if ref and do_reply:
         return await webhook.reply(
-            ref.context, message, name, proxy.effective_avatar, mention, embeds,
-            await convert_attachments(attachments), mention_str
+            ref.context, name, proxy.effective_avatar, mention_str, message, embeds,
+            files=await convert_attachments(attachments),
+            allowed_mentions=allowed_mentions, thread_id=thread_id
         ), name
 
     return await webhook.send(
-        message, name, proxy.effective_avatar, mention, embeds, await convert_attachments(attachments)
+        name, proxy.effective_avatar, message, embeds,
+        files=await convert_attachments(attachments),
+        allowed_mentions=allowed_mentions, thread_id=thread_id
     ), name
 
 
 async def reproxy(message_link: MessageLink, context: Context, old_proxy: Proxy, new_proxy: Proxy):
-    webhook: Webhook = await get_webhook(context)
+    webhook = await get_webhook(context)
+    if not webhook:
+        return
     if (channel := await context.get_channel(context.message.channel_id)) is None:
         return
 
@@ -91,15 +126,25 @@ async def reproxy(message_link: MessageLink, context: Context, old_proxy: Proxy,
 
     name = new_proxy.effective_name(await get_db().tags.fetch_bulk(await get_db().relationships.get_relationships(new_proxy.id)))
 
+    mentions_original = await context.message.mentions_original()
+    allowed_mention = AllowedMention(
+        mentions_original,
+        True,
+        context.message.mentions_everyone,
+        mentions_original
+    )
+
+    thread_id = channel.id if channel.is_thread else None
 
     if parent_message:
         m = await webhook.reply(
-            parent_message.context, contents, name, new_proxy.effective_avatar, True, embeds,
-            await convert_attachments(attachments), False
+            parent_message.context, name, new_proxy.effective_avatar, False, contents, embeds,
+            files=await convert_attachments(attachments), allowed_mentions=allowed_mention, thread_id=thread_id
         )
     else:
         m = await webhook.send(
-            contents, name, new_proxy.effective_avatar, True, embeds, await convert_attachments(attachments)
+            name, new_proxy.effective_avatar, contents, embeds,
+            files=await convert_attachments(attachments), allowed_mentions=allowed_mention, thread_id=thread_id
         )
 
     await get_db().proxies.transfer_usage(old_proxy.id, new_proxy.id)
@@ -136,7 +181,9 @@ async def reproxy(message_link: MessageLink, context: Context, old_proxy: Proxy,
 
 
 async def edit_proxy_message(old_message: Context, new_message_contents: str, message_link: MessageLink, permissions: GuildPermissions, owner: UserID):
-    webhook: Webhook = await get_webhook(old_message)
+    webhook = await get_webhook(old_message)
+    if not webhook:
+        return
     if (channel := await old_message.get_channel(old_message.message.channel_id)) is None:
         return
 

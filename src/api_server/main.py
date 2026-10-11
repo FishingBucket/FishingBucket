@@ -15,7 +15,7 @@ app = Application()
 
 @app.on_ready
 def _():
-    router = app.create_router("/api/v1")
+    router = app.create_router("")
 
     @router.get(
         "/info/@me",

@@ -150,3 +150,4 @@ class UserData(BaseModel):
     proxies: list[Proxy]
     tags: list[ProxyTag]
     relationships: list[Relationship]
+    user_id: int

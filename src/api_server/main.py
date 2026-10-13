@@ -28,7 +28,8 @@ def _():
             return UserData(
                 proxies=[],
                 tags=[],
-                relationships=[]
+                relationships=[],
+                user_id=-1
             )
 
         proxies = await app.context.database.proxies.full_from_user(session.user_id)
@@ -46,7 +47,8 @@ def _():
                     proxy=proxy,
                     tags=tags
                 ) for proxy, tags in relationships.items()
-            ]
+            ],
+            user_id=session.user_id
         )
 
 

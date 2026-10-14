@@ -1,0 +1,56 @@
+{
+  "$schema": "./config.schema.json",
+  "name": "Bot Name",
+  "database_file": "path/to/permanent/database.sqlite",
+  "data_path": "./data/",
+  "webhook": "Webhook for Bot Name's Proxies",
+  "log_directory": "path/to/logs/",
+  "log_time_format": "%Y-%m-%d_%H-%M-%S",
+  "fluxer": {
+    "token": "1501314428688998182.aDFplg-fYQ4of4I7dM-q9tRxkgmjslc2LSE_BTwsAUo",
+    "guild_invite": "https://fluxer.gg/iAcmPOrs",
+    "guild_id": 1502394052687172075,
+    "bot_invite": "https://web.fluxer.app/oauth2/authorize?client_id=1501314428688998182&scope=bot&permissions=137976212560",
+    "client_id": 1501314428688998182,
+    "api_url": "https://api.fluxer.app/v1",
+    "prefixes": [
+      "!",
+      "fish!"
+    ]
+  },
+  "discord": {
+    "token": "MTU1NzIzOTkwNDY0MjEzODE3Mw.GQmp5C.49jl2jfaGBNGn-lviRlVi7SmRdAHVp6F7mXONw",
+    "guild_invite": "https://discord.gg/Oa4a12vSZ",
+    "guild_id": 1557240655652063884,
+    "bot_invite": "https://discord.com/oauth2/authorize?client_id=1557239904642138173&permissions=413122554944&integration_type=0&scope=bot",
+    "client_id": 1557239904642138173,
+    "api_url": "https://discord.com/api/v10",
+    "prefixes": [
+      "!",
+      "fish!"
+    ]
+  },
+  "use_extras": true,
+  "donation": "https://www.patreon.com/c/developername",
+  "api_server": {
+    "enabled": true,
+    "domain": "localhost",
+    "port": 8080,
+    "database": "path/to/permanent/api_database.sqlite",
+    "fluxer": {
+      "client_id": 1501314428688998182,
+      "client_secret": "IE867jBd9L4M0_tGI8OUOppXVezR1u6x8Yj-Lduilxg"
+    },
+    "discord": {
+      "client_id": 1557239904642138173,
+      "client_secret": "Ym9DR7WbqUF3N1yJSu9BoD56TO9eb0hV"
+    }
+  },
+  "website": {
+    "dashboard": "https://website.fish/dashboard",
+    "home": "https://website.fish",
+    "terms": "https://website.fish/terms",
+    "privacy": "https://website.fish/privacy",
+    "contact": "https://website.fish/contact"
+  }
+}

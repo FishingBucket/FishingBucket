@@ -1,0 +1,60 @@
+{
+  "tuppers": [
+    {
+      "id": 198843602,
+      "user_id": "1553496104207646842",
+      "name": "Name 2",
+      "brackets": [
+        "prefix ",
+        ""
+      ],
+      "avatar_url": "https://cdn.tupperbox.app/pfp/1553496104207646842/qU5C7NeeoztfgdO_.webp",
+      "avatar": "qU5C7NeeoztfgdO_",
+      "avatar_ext": null,
+      "banner": null,
+      "posts": 0,
+      "show_brackets": false,
+      "birthday": null,
+      "description": null,
+      "tag": null,
+      "nick": null,
+      "created_at": "2026-09-26T00:00:00.000Z",
+      "group_id": 2832642,
+      "group_name": "Group",
+      "last_used": null
+    },
+    {
+      "id": 198842552,
+      "user_id": "1553496104207646842",
+      "name": "Name",
+      "brackets": [
+        "prefix",
+        " suffix"
+      ],
+      "avatar_url": "https://cdn.tupperbox.app/pfp/1553496104207646842/sipWTyKrwEY2ZoBy.webp",
+      "avatar": "sipWTyKrwEY2ZoBy",
+      "avatar_ext": null,
+      "banner": null,
+      "posts": 1,
+      "show_brackets": false,
+      "birthday": "2026-01-05T00:00:00.000Z",
+      "description": "Description",
+      "tag": "Tag",
+      "nick": "Display Name",
+      "created_at": "2026-09-26T00:00:00.000Z",
+      "group_id": null,
+      "group_name": null,
+      "last_used": "2026-09-26T20:20:14.229Z"
+    }
+  ],
+  "groups": [
+    {
+      "id": 2832642,
+      "user_id": "1553496104207646842",
+      "name": "Group",
+      "avatar": "0WJlptA62FScsx-t",
+      "description": "Description",
+      "tag": "Tag"
+    }
+  ]
+}

@@ -5,11 +5,12 @@ import os
 
 from .backend.config import Config
 
+
 def run(config_file: str):
     Config(config_file)
 
+    from .backend.database.database import Database, get_db
     from .backend.data_reader import DataReader
-    from .backend.database import Database
     from .backend.logging import start_log
     from .interaction import Interactions
     from .backend.cache import CacheStatus
@@ -34,7 +35,7 @@ def run(config_file: str):
 
     async def run_once():
         starts = [asyncio.Future()] + [server.start() for server in servers]
-        ends = [Database.instance.close()] + [server.close() for server in servers]
+        ends = [get_db().close()] + [server.close() for server in servers]
         if Config.instance.api_server:
             starts.append(api_app.serve())
             ends.append(api_app.close())
@@ -61,24 +62,21 @@ def run(config_file: str):
     while do_run:
         print("Trying to connect...")
         start_time = time.time()
-        err = None
+        err: BaseException | None = None
         try:
             try:
-                asyncio.run(Database.instance.init())
+                asyncio.run(get_db().init())
 
                 for server in servers:
                     setup_events.setup(server)
 
-                api_app.set_context(ApplicationContext(Database.instance, Config.instance))
+                api_app.set_context(ApplicationContext(get_db(), Config.instance))
                 asyncio.run(run_once())
             except (SystemExit, KeyboardInterrupt) as e:
                 shutdown(repr(e))
-            except Exception as e:
+            except BaseException as e:
                 error(e)
                 err = e
-            except BaseException as be:
-                error(be)
-                err = be
         except Exception: pass
 
         print("Trying to restart")

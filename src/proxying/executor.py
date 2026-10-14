@@ -1,72 +1,121 @@
+from dataclasses import replace
 from typing import Literal
 
 from .editing import modify_message
 from ..backend.cache import TTLCache
 from ..backend.config import Config
-from ..backend.database import Database, Guild, MessageLink
-from ..backend.models import Proxy
-from ..backend.utils import convert_attachments, quote
+from ..backend.database.database import get_db
+from ..backend.database.guild import MessageLink
+from ..backend.database.permission import GuildPermissions
+from ..backend.database.user import UserID
+from ..backend.models import Proxy, MessageDat, GuildDat
+from ..backend.utils import convert_attachments, quote, DelimitedString
 from ..service import Webhook, Context, Attachment, Embed
+from ..service.common import AllowedMention, MentionPreference
 
 webhook_cache = TTLCache[int, Webhook](2048, 3600)
 
 
-async def get_webhook(context: Context) -> Webhook:
+async def get_webhook(context: Context) -> Webhook | None:
     if webhook := webhook_cache.get(context.message.channel_id): return webhook
     webhook = None
 
-    if webhook_id := await Database.instance.get_channel_webhook(context.message.channel_id, context.platform):
-        webhook = await context.get_bot.get_webhook(webhook_id)
+    effective_channel_id = context.message.channel_id
+    this_channel = await context.get_this_channel()
+
+    if this_channel.is_thread and (parent_id := context.message.channel.parent_id):
+        effective_channel_id = parent_id
+
+    if webhook_id := await get_db().guilds.get_channel_webhook(effective_channel_id, context.platform):
+        webhook = await context.bot.get_webhook(webhook_id)
 
     if webhook is None:
-        webhook = await context.channel.create_webhook(Config.instance.webhook)
-        await Database.instance.put_channel_webhook_link(context.message.channel_id, webhook.id, context.platform)
+        effective_channel = this_channel
+        if this_channel.is_thread:
+            effective_channel = await context.get_channel(effective_channel_id) # type: ignore # guaranteed i think
+            assert effective_channel is not None
+        webhook = await effective_channel.create_webhook(Config.instance.webhook)
+        if webhook:
+            await get_db().guilds.put_channel_webhook(effective_channel_id, context.platform, webhook.id)
 
-    webhook_cache.set(context.message.channel_id, webhook)
+    if webhook:
+        webhook_cache.set(context.message.channel_id, webhook)
     return webhook
 
 
-async def send_proxy_message(proxy: Proxy, message: str, context: Context, attachments: list[Attachment], mention: bool, do_reply: bool) -> Context:
-    webhook: Webhook = await get_webhook(context)
+async def send_proxy_message(
+        proxy: Proxy,
+        message: str,
+        context: Context,
+        attachments: list[Attachment],
+        do_reply: bool,
+        permissions: GuildPermissions
+) -> tuple[Context, str] | None:
+    webhook = await get_webhook(context)
+    if not webhook:
+        return None
+
     channel = await context.get_this_channel()
 
     mention_str: str | Literal[False] = False
     ref = await context.message.get_reference()
 
+    mention_pref = MentionPreference.NO_PREFERENCE
     if ref:
-        lnk = await Database.instance.get_message_link(ref.id, ref.channel_id)
-        if lnk and (parent_proxy := await Database.instance.get_proxy(lnk.proxy_id)):
+        lnk = await get_db().guilds.get_message_link(MessageDat(ref.id, ref.channel_id, context.platform))
+        if lnk and (parent_proxy := await get_db().proxies.get(lnk.proxy_id)):
+            mentioned_user = await context.get_member(lnk.platform_user) or await context.get_user(lnk.platform_user)
+            mention_pref = mentioned_user.mention_preference if mentioned_user else MentionPreference.NO_PREFERENCE
             mention_str = f"{parent_proxy.name} (<@{lnk.platform_user}>)"
         else:
+            try:
+                mentioned_user = await ref.member()
+            except: # mysterious exception
+                mentioned_user = ref.author
+            mention_pref = mentioned_user.mention_preference if mentioned_user else MentionPreference.NO_PREFERENCE
             mention_str = ref.author.mention
+
+    allowed_mentions = AllowedMention(
+        mention_pref != MentionPreference.PREFER_NO_MENTION, # temporary solution rn
+        True,
+        context.message.mentions_everyone,
+        mention_pref != MentionPreference.PREFER_NO_MENTION
+    )
+
+    thread_id = channel.id if channel.is_thread else None
 
     message, embeds = await modify_message(
         proxy.owner,
-        await Database.instance.get_guild_preferences(Guild(channel.guild_id, context.platform)),
+        await get_db().guilds.get_guild_preferences(GuildDat(channel.guild_id, context.platform)),
+        permissions,
         message
     )
 
+    name = proxy.effective_name(await get_db().tags.fetch_bulk(await get_db().relationships.get_relationships(proxy.id)))
+
     if ref and do_reply:
         return await webhook.reply(
-            ref.context, message, proxy.effective_name, proxy.effective_avatar, mention, embeds,
-            await convert_attachments(attachments), mention_str
-        )
+            ref.context, name, proxy.effective_avatar, mention_str, message, embeds,
+            files=await convert_attachments(attachments),
+            allowed_mentions=allowed_mentions, thread_id=thread_id
+        ), name
 
     return await webhook.send(
-        message, proxy.effective_name, proxy.effective_avatar, mention, embeds, await convert_attachments(attachments)
-    )
+        name, proxy.effective_avatar, message, embeds,
+        files=await convert_attachments(attachments),
+        allowed_mentions=allowed_mentions, thread_id=thread_id
+    ), name
 
 
-async def reproxy(context: Context, old_proxy: Proxy, new_proxy: Proxy):
-    assert isinstance(old_proxy.id, int)
-    assert isinstance(new_proxy.id, int)
-
-    webhook: Webhook = await get_webhook(context)
+async def reproxy(message_link: MessageLink, context: Context, old_proxy: Proxy, new_proxy: Proxy):
+    webhook = await get_webhook(context)
+    if not webhook:
+        return
     if (channel := await context.get_channel(context.message.channel_id)) is None:
         return
 
-    guild = Guild(channel.guild_id, context.platform)
-    server_preferences = await Database.instance.get_guild_preferences(guild)
+    guild = GuildDat(channel.guild_id, context.platform)
+    guild_preferences = await get_db().guilds.get_guild_preferences(guild)
 
     fixed_message = await webhook.get_message_data(context)
     contents = fixed_message.content
@@ -74,41 +123,76 @@ async def reproxy(context: Context, old_proxy: Proxy, new_proxy: Proxy):
     embeds = fixed_message.embeds
     parent_message = await fixed_message.get_reference()
 
-    previous_link: MessageLink = await Database.instance.get_message_link(context.message.id, context.message.channel_id)
     await context.message.delete()
-    await Database.instance.delete_link_message(context.message.id, context.channel.id)
+    await get_db().guilds.delete_link_message(MessageDat(context.message.id, context.channel.id, context.platform))
+
+    name = new_proxy.effective_name(await get_db().tags.fetch_bulk(await get_db().relationships.get_relationships(new_proxy.id)))
+
+    mentions_original = await context.message.mentions_original()
+    allowed_mention = AllowedMention(
+        mentions_original,
+        True,
+        context.message.mentions_everyone,
+        mentions_original
+    )
+
+    thread_id = channel.id if channel.is_thread else None
+
     if parent_message:
         m = await webhook.reply(
-            parent_message.context, contents, new_proxy.effective_name, new_proxy.effective_avatar, True, embeds,
-            await convert_attachments(attachments), False
+            parent_message.context, name, new_proxy.effective_avatar, False, contents, embeds,
+            files=await convert_attachments(attachments), allowed_mentions=allowed_mention, thread_id=thread_id
         )
     else:
         m = await webhook.send(
-            contents, new_proxy.effective_name, new_proxy.effective_avatar, True, embeds, await convert_attachments(attachments)
+            name, new_proxy.effective_avatar, contents, embeds,
+            files=await convert_attachments(attachments), allowed_mentions=allowed_mention, thread_id=thread_id
         )
 
-    await Database.instance.transfer_proxy_usage(old_proxy.id, new_proxy.id)
-    await Database.instance.set_autoproxy_last_used_proxy(old_proxy.owner, guild, new_proxy.id)
-    await Database.instance.link_message(m.id, context.channel.id, new_proxy.id, previous_link.platform_user, context.platform)
-    logging_channel_id = server_preferences.logging_channel
+    await get_db().proxies.transfer_usage(old_proxy.id, new_proxy.id)
+
+    autoproxy = await get_db().user_settings.get_autoproxy_preference(old_proxy.owner, guild)
+    if autoproxy:
+        await get_db().user_settings.set_autoproxy_preference(old_proxy.owner, replace(autoproxy, last_used_proxy=new_proxy.id))
+
+    await get_db().guilds.link_message(MessageLink(
+        MessageDat(
+            m.id, context.channel.id, context.platform
+        ),
+        new_proxy.id,
+        message_link.platform_user
+    ))
+
+    logging_channel_id = guild_preferences.logging_channel
     if logging_channel_id != 0 and (logging_channel := await context.get_channel(logging_channel_id)):
         embed = Embed(
             f"Message Proxy Change",
-            f"**Previous Proxy**: {old_proxy.effective_name}\n**New Proxy**: {new_proxy.effective_name}\n**Owner**: <@{previous_link.platform_user}> (`{previous_link.platform_user}`)\n**Channel**: {context.channel.mention} (`{context.channel.id}`)\n**New Message Link**: [jump]({await m.message.mention()})",
+            str(
+                DelimitedString("\n") +
+                f"**Previous Proxy**: {old_proxy.effective_name(
+                    await get_db().tags.fetch_bulk(await get_db().relationships.get_relationships(old_proxy.id))
+                )}" +
+                f"**New Proxy**: {name}" +
+                f"**Owner**: <@{message_link.platform_user}> (`{message_link.platform_user}`)" +
+                f"**Channel**: {context.channel.mention} (`{context.channel.id}`)" +
+                f"**New Message Link**: [jump]({await m.message.mention()})"
+            ),
             thumbnail_url=new_proxy.effective_avatar
         )
         await logging_channel.send("", embeds=[embed])
 
 
-async def edit_proxy_message(old_message: Context, new_message_contents: str, message_link: MessageLink, owner: int):
-    webhook: Webhook = await get_webhook(old_message)
+async def edit_proxy_message(old_message: Context, new_message_contents: str, message_link: MessageLink, permissions: GuildPermissions, owner: UserID):
+    webhook = await get_webhook(old_message)
+    if not webhook:
+        return
     if (channel := await old_message.get_channel(old_message.message.channel_id)) is None:
         return
 
-    guild = Guild(channel.guild_id, old_message.platform)
+    guild = GuildDat(channel.guild_id, old_message.platform)
 
-    server_preferences = await Database.instance.get_guild_preferences(guild)
-    contents, embeds = await modify_message(owner, server_preferences, new_message_contents)
+    server_preferences = await get_db().guilds.get_guild_preferences(guild)
+    contents, embeds = await modify_message(owner, server_preferences, permissions, new_message_contents)
 
     await webhook.edit(
         old_message,
@@ -117,10 +201,24 @@ async def edit_proxy_message(old_message: Context, new_message_contents: str, me
     )
 
     logging_channel_id = server_preferences.logging_channel
-    if logging_channel_id != 0 and (logging_channel := await old_message.get_channel(logging_channel_id)) and (proxy := await Database.instance.get_proxy(message_link.proxy_id)):
+    if (
+            logging_channel_id and
+            (logging_channel := await old_message.get_channel(logging_channel_id)) and
+            (proxy := await get_db().proxies.get(message_link.proxy_id))
+    ):
         embed = Embed(
             f"Message Edit",
-            f"**Proxy**: {proxy.effective_name}\n**Owner**: <@{message_link.platform_user}> (`{message_link.platform_user}`)\n**Channel**: <#{old_message.message.channel_id}> (`{old_message.message.channel_id}`)\n**Message Link**: [jump]({await old_message.message.mention()})\n**Old Message**:\n{quote(old_message.content)}\n**New Message**:\n{quote(new_message_contents)}",
+            str(
+                DelimitedString("\n") +
+                f"**Proxy**: {proxy.effective_name(
+                    await get_db().tags.fetch_bulk(await get_db().relationships.get_relationships(proxy.id))
+                )}" +
+                f"**Owner**: <@{message_link.platform_user}> (`{message_link.platform_user}`)" +
+                f"**Channel**: <#{old_message.channel.id}> (`{old_message.channel.id}`)" +
+                f"**Message Link**: [jump]({await old_message.message.mention()})" +
+                f"**Old Message**:\n{quote(old_message.content)}" +
+                f"**New Message**:\n{quote(new_message_contents)}"
+            ),
             thumbnail_url=proxy.effective_avatar
         )
         await logging_channel.send("", embeds=[embed])

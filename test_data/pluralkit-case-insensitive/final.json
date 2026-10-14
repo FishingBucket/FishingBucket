@@ -1,0 +1,68 @@
+{
+  "proxies": [
+    {
+      "name": "Member Name",
+      "description": "Description",
+      "avatar_url": "NOT FALSEY",
+      "triggers": [
+        "{text.lower().startswith('prefix ') && text.lower().endswith(' suffix') && text.slice(7, -7)}",
+        "{text.lower().startswith('prefix2 ') && text.lower().endswith(' suffix2') && text.slice(8, -8)}"
+      ],
+      "times_used": 2,
+      "creation_date": "NOT FALSEY",
+      "nickname": "Display Name",
+      "forms": {},
+      "current_form": "",
+      "pronouns": "pro/nouns",
+      "tags": ["$0"]
+    },
+    {
+      "name": "Member Name 3",
+      "description": "",
+      "avatar_url": "NOT FALSEY",
+      "triggers": [],
+      "times_used": 0,
+      "creation_date": "NOT FALSEY",
+      "nickname": "",
+      "forms": {},
+      "current_form": "",
+      "pronouns": "",
+      "tags": ["$2", "$1", "$0"]
+    },
+    {
+      "name": "Member Name 2",
+      "description": "",
+      "avatar_url": "NOT FALSEY",
+      "triggers": [
+        "{text.lower().startswith('prefix3 ') && text.lower().endswith(' suffix3') && text}"
+      ],
+      "times_used": 0,
+      "creation_date": "NOT FALSEY",
+      "nickname": "",
+      "forms": {},
+      "current_form": "",
+      "pronouns": "",
+      "tags": ["$2", "$0"]
+    }
+  ],
+  "tags": {
+    "$0": {
+      "name": "System Name",
+      "description": "System Description",
+      "creation_date": "NOT FALSEY",
+      "tag": "{} System Tag"
+    },
+    "$1": {
+      "name": "Group Name 2",
+      "description": "",
+      "creation_date": "NOT FALSEY",
+      "tag": ""
+    },
+    "$2": {
+      "name": "Display Name",
+      "description": "Description",
+      "creation_date": "NOT FALSEY",
+      "tag": ""
+    }
+  }
+}

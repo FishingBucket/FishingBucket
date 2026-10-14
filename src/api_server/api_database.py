@@ -1,30 +1,34 @@
 import datetime
 from dataclasses import dataclass
 from pathlib import Path
+from typing import NewType
 
 import aiosqlite as sql
 import json
 import secrets
 
 from ..backend.cache import TTLCache
+from ..backend.database.user import UserID, SSOID
 from ..backend.logging import start_log
 from ..backend.models import Platform
 
 print, error = start_log("database", "-api")
 
+SessionID = NewType("SessionID", str)
+
 
 @dataclass
 class Session:
-    session_id: str
-    user_id: int
+    session_id: SessionID
+    user_id: UserID
     data: dict
     created: float
     expires: float
     platform: Platform
-    sso_id: int
+    sso_id: SSOID
 
 class Cache:
-    sessions: TTLCache[str, Session] = TTLCache(4096, 3600)
+    sessions: TTLCache[SessionID, Session] = TTLCache(4096, 3600)
 
 SESSION_TTL = 3600 * 24
 
@@ -91,7 +95,7 @@ class Database:
         async with self.connection.execute("UPDATE meta SET db_version = ?", (version, )): pass
 
 
-    async def get_session(self, session_id: str) -> Session | None:
+    async def get_session(self, session_id: SessionID) -> Session | None:
         if ret := Cache.sessions.get(session_id):
             return ret
 
@@ -108,8 +112,8 @@ class Database:
             Cache.sessions.set(session_id, sess)
             return sess
 
-    async def new_session(self, user_id: int, data: dict, platform: Platform, sso_id: int) -> tuple[str, float]:
-        session_id = secrets.token_hex(64)
+    async def new_session(self, user_id: UserID, data: dict, platform: Platform, sso_id: SSOID) -> tuple[SessionID, float]:
+        session_id = SessionID(secrets.token_hex(64))
         now = this_time()
         expires = now + SESSION_TTL
         await self.connection.execute(
@@ -119,20 +123,20 @@ class Database:
         await self.connection.commit()
         return session_id, expires
 
-    async def remove_all_sessions(self, user_id: int):
+    async def remove_all_sessions(self, user_id: UserID):
         async with self.connection.execute("DELETE FROM sessions WHERE user_id = ?", (user_id, )):
             Cache.sessions.clear(lambda k, v: v.user_id == user_id)
 
-    async def remove_sessions_sso_id(self, sso_id: int):
+    async def remove_sessions_sso_id(self, sso_id: SSOID):
         async with self.connection.execute("DELETE FROM sessions WHERE sso_id = ?", (sso_id, )):
             Cache.sessions.clear(lambda k, v: v.sso_id == sso_id)
 
-    async def update_user_id(self, session_id: str, new_user_id: int) -> Session:
+    async def update_user_id(self, session_id: SessionID, new_user_id: UserID) -> Session | None:
         async with self.connection.execute("UPDATE sessions SET user_id = ? WHERE id = ?", (new_user_id, session_id)):
             Cache.sessions.invalidate(session_id)
             return await self.get_session(session_id)
 
-    async def extend_session(self, session_id: str, new_time: float) -> Session:
+    async def extend_session(self, session_id: SessionID, new_time: float) -> Session | None:
         async with self.connection.execute("UPDATE sessions SET expires = ? WHERE id = ?", (new_time, session_id)) as cursor:
             Cache.sessions.invalidate(session_id)
             return await self.get_session(session_id)

@@ -43,20 +43,20 @@ CREATE TABLE IF NOT EXISTS global_stats (
     key TEXT PRIMARY KEY,
     value REAL
 );
-INSERT OR IGNORE INTO global_stats (key, value) VALUES ('version', 18);
+INSERT OR IGNORE INTO global_stats (key, value) VALUES ('version', 21);
 
 CREATE TABLE IF NOT EXISTS permission_overrides (
-    id INTEGER,
     guild_id INTEGER,
-    allow_proxy INTEGER,
-    id_type INTEGER,
     guild_type INTEGER,
-    PRIMARY KEY (id, guild_id, guild_type)
-); -- 0 - channel; 1 - role; 2 - user
+    id INTEGER,
+    id_type INTEGER,
+    allows INTEGER,
+    denies INTEGER,
+    PRIMARY KEY (id, id_type, guild_id, guild_type)
+); -- id_type: 0 - channel; 1 - role; 2 - user; 3 - base
 
 CREATE TABLE IF NOT EXISTS guild_preferences (
     guild_id INTEGER,
-    disallow_by_default BOOLEAN,
     logging_channel INTEGER,
     dice_functions BLOB,
     guild_type INTEGER,
@@ -114,8 +114,6 @@ CREATE TABLE IF NOT EXISTS autoproxies (
 CREATE INDEX IF NOT EXISTS idx_proxies_owner ON proxies (owner);
 CREATE INDEX IF NOT EXISTS idx_message_links_channel ON message_links (channel_id);
 CREATE INDEX IF NOT EXISTS idx_message_links_proxy ON message_links (proxy_id);
-CREATE INDEX IF NOT EXISTS idx_permission_overrides_guild ON permission_overrides (guild_id);
-CREATE INDEX IF NOT EXISTS idx_permission_overrides_id ON permission_overrides (id);
 CREATE INDEX IF NOT EXISTS idx_autoproxies_guild_id ON autoproxies (guild_id);
 CREATE INDEX IF NOT EXISTS idx_autoproxies_user_id ON autoproxies (user_id);
 CREATE INDEX IF NOT EXISTS idx_accounts_query ON accounts (user_id, account_type);

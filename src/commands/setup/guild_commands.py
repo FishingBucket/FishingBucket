@@ -1,5 +1,5 @@
 from ..generic import make_command_group, make_command, Argument
-from ..generic.strategies import OneOf, List, Literal, Optional
+from ..generic.strategies import OneOf, List, Literal, Optional, OptionList
 from ...backend.config import Config
 from ...service import Channel, Role, User
 
@@ -20,12 +20,18 @@ def setup():
                     "allow proxy"
                 ]
             },
-            "Changes which members can proxy within the community.",
+            "Change permissions within the community.",
             """
-            Changes which members can proxy within the community.
+            Change permissions within the community.
             You must have the **Manage Community** permission to use this command.
             This will not override previous settings.
             The resolution order is always as follows: community, channel, role, and finally user.
+            
+            The possible permissions are:
+            - Proxying (`proxy`)
+            - Use embed blocks (`embed`)
+            - Use multiple proxies at once (`multiproxy`)
+            - Use dice functionality (`dice`)
             """,
             [
                 Argument(
@@ -51,6 +57,20 @@ def setup():
                     OneOf(
                         bool,
                         Literal("default")
+                    )
+                ),
+                Argument(
+                    "permissions",
+                    List(
+                        OptionList(
+                            None,
+                            [
+                                "proxy",
+                                "embed",
+                                "multiproxy",
+                                "dice"
+                            ]
+                        )
                     )
                 )
             ]

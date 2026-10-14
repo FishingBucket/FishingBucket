@@ -1,5 +1,7 @@
 import re
+from collections.abc import Callable
 from datetime import datetime
+
 import expr_dice_roller as dice
 
 from .data_reader import DataReader
@@ -29,7 +31,9 @@ async def convert_attachments(message_attachments: list[Attachment]) -> list[Fil
         parsed_attachments.append(File(
             attachment.filename,
             "",
-            await attachment.read()
+            await attachment.read(),
+            attachment.spoiler,
+            attachment.alt
         ))
     return parsed_attachments
 
@@ -60,3 +64,31 @@ def roll_dice(string: str, get_global_environment, set_global_environment) -> tu
 
 def quote(text: str) -> str:
     return text and "\n".join(("> " + line) for line in text.split("\n"))
+
+
+def list_to_dict[K, T](lst: list[T], criteria: Callable[[T], K]) -> dict[K, T]:
+    dct: dict[K, T] = {}
+    for item in lst:
+        dct[criteria(item)] = item
+    return dct
+
+
+type DelimitedStringAcceptable = str | DelimitedString | None
+
+class DelimitedString:
+    def __init__(self, delimiter: str, *parts: DelimitedStringAcceptable):
+        self.parts: list[str] = [str(part) for part in parts if part is not None]
+        self.delimiter = delimiter
+
+    def __add__(self, other: DelimitedStringAcceptable) -> DelimitedString:
+        return DelimitedString(self.delimiter, *(self.parts + [str(other)]))
+
+    def __iadd__(self, other: DelimitedStringAcceptable) -> DelimitedString:
+        if other is None:
+            return self
+
+        self.parts.append(str(other))
+        return self
+
+    def __str__(self) -> str:
+        return self.delimiter.join(self.parts)

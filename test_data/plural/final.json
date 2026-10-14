@@ -1,0 +1,51 @@
+{
+  "proxies": [
+    {
+      "name": "Member Name",
+      "description": "Bio",
+      "avatar_url": "NOT FALSEY",
+      "triggers": [
+        "{text.lower().startswith('prefix') && text.lower().endswith('suffix') && text.slice(6, -6)}",
+        "prefix2{}suffix2"
+      ],
+      "times_used": 0,
+      "creation_date": "NOT FALSEY",
+      "nickname": "",
+      "forms": {},
+      "current_form": "",
+      "pronouns": "pro/nouns",
+      "tags": [
+        "$0"
+      ]
+    },
+    {
+      "name": "Member Name 2",
+      "description": "",
+      "avatar_url": "NOT FALSEY",
+      "triggers": [],
+      "times_used": 0,
+      "creation_date": "NOT FALSEY",
+      "nickname": "",
+      "forms": {},
+      "current_form": "",
+      "pronouns": "",
+      "tags": [
+        "$1"
+      ]
+    }
+  ],
+  "tags": {
+    "$0": {
+      "name": "default",
+      "description": "",
+      "creation_date": "NOT FALSEY",
+      "tag": ""
+    },
+    "$1": {
+      "name": "Group Name",
+      "description": "",
+      "creation_date": "NOT FALSEY",
+      "tag": "{} Tag"
+    }
+  }
+}

@@ -23,7 +23,9 @@ def setup():
             - Fishing Bucket (`fishing_bucket`)
             - Tupperbox (`tupperbox`)
             - PluralKit (`pluralkit`)
-            - Utter (`utter`).
+            - Utter (`utter`)
+            - PluralBuddy (`pluralbuddy`) (cannot be inferred)
+            - /plu/ral (`/plu/ral`)
             
             If `origin` is not provided, then it will be guessed based on the filename.
             """,
@@ -53,7 +55,12 @@ def setup():
                                     "pk"
                                 ],
                                 "utter": [],
-                                "fishing_bucket_old": []
+                                "pluralbuddy": [
+                                    "pb"
+                                ],
+                                "/plu/ral": [
+                                    "plural"
+                                ]
                             },
                             True
                         ),

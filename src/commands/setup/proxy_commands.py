@@ -1,9 +1,19 @@
 import random
+import string
 from datetime import timedelta
 
 from ..generic import make_command_group, make_command, Argument
 from ..generic.strategies import Optional, OneOf, Literal, OptionList
 from ..specific import TemplateStrategy, UnknownPageNumber, ProxyStrategy
+
+
+def random_trigger():
+    return random.choice([
+        random.choice(string.ascii_letters) + random.choice(string.punctuation) + " " * random.randint(0, 1) + "{}",
+        (brackets := random.choice(("()", "[]", "{}", "~~", "^^", "&&", "--", "__", "**", "!!", ";;", "<>")))[0] + "{}" + brackets[1],
+        "name: {}",
+        "{}-" + random.choice(string.ascii_letters)
+    ])
 
 
 def setup():
@@ -36,7 +46,8 @@ def setup():
                     "trigger",
                     TemplateStrategy([
                         "text"
-                    ])
+                    ]),
+                    random_trigger
                 )
             ]
         )
@@ -199,10 +210,11 @@ def setup():
                     "expiration",
                     Optional(
                         OneOf(
-                            timedelta,
                             Literal(
                                 "never"
-                            )
+                            ),
+                            timedelta,
+                            fatal=True
                         ),
                         "never"
                     )
@@ -214,7 +226,9 @@ def setup():
     proxy_commands.append(
         make_command(
             {
-                "who": ["showuser"]
+                "who": [
+                    "showuser"
+                ]
             },
             "Shows you information about a proxied message.",
             """
@@ -255,11 +269,15 @@ def setup():
 
     proxy_commands.append(
         make_command(
-            "edit",
+            {
+                "edit": [
+                    "e"
+                ]
+            },
             "Edits a proxied message.",
             """
             Edits a proxied message.
-            This requires the command to be a reply to a message sent by a proxy.
+            If the command was sent as a reply, the replied message is edited. Otherwise it will edit the latest message.
             You must own the proxy to edit the message.
             """,
             [

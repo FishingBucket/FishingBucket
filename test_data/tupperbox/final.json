@@ -1,0 +1,42 @@
+{
+  "proxies": [
+    {
+      "name": "Name 2",
+      "description": "",
+      "avatar_url": "NOT FALSEY",
+      "triggers": [
+        "prefix {}"
+      ],
+      "times_used": 0,
+      "creation_date": "NOT FALSEY",
+      "nickname": "",
+      "forms": {},
+      "current_form": "",
+      "pronouns": "",
+      "tags": ["$0"]
+    },
+    {
+      "name": "Name",
+      "description": "Description",
+      "avatar_url": "NOT FALSEY",
+      "triggers": [
+        "prefix{} suffix"
+      ],
+      "times_used": 1,
+      "creation_date": "NOT FALSEY",
+      "nickname": "Display Name Tag",
+      "forms": {},
+      "current_form": "",
+      "pronouns": "",
+      "tags": []
+    }
+  ],
+  "tags": {
+    "$0": {
+      "name": "Group",
+      "description": "Description",
+      "creation_date": "NOT FALSEY",
+      "tag": "{} Tag"
+    }
+  }
+}

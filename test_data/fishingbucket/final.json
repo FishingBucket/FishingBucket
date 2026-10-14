@@ -1,0 +1,48 @@
+{
+  "proxies": [
+    {
+      "name": "Proxy Name",
+      "description": "Description",
+      "avatar_url": "NOT FALSEY",
+      "triggers": [
+        "prefix2 {} prefix2",
+        "prefix {} suffix",
+        "{text.contains(\"hello\") && text.startswith(\"x\") && text}"
+      ],
+      "times_used": 1,
+      "creation_date": "NOT FALSEY",
+      "nickname": "Nickname",
+      "forms": {},
+      "current_form": "",
+      "pronouns": "pro/nouns",
+      "tags": []
+    },
+    {
+      "name": "Proxy Name 2",
+      "description": "",
+      "avatar_url": "NOT FALSEY",
+      "triggers": [
+        "prefix3 {} suffix3"
+      ],
+      "times_used": 1,
+      "creation_date": "NOT FALSEY",
+      "nickname": "",
+      "forms": {
+        "form": "NOT FALSEY"
+      },
+      "current_form": "form",
+      "pronouns": "",
+      "tags": [
+        "$0"
+      ]
+    }
+  ],
+  "tags": {
+    "$0": {
+      "name": "Tag Name",
+      "description": "Description",
+      "creation_date": "NOT FALSEY",
+      "tag": "Marker {}"
+    }
+  }
+}

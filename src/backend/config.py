@@ -49,7 +49,7 @@ class Config_(BaseModel):
     discord: PlatformConfig | None = None
 
     name: str
-    database_file: FilePath
+    database_file: str
     data_path: DirectoryPath
     webhook: str
     log_directory: DirectoryPath

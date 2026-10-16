@@ -54,8 +54,10 @@ class Proxy(BaseModel):
     pronouns: str
     times_used: int
 
+    effective_name: str = ""
+
     @classmethod
-    def from_source(cls, source: source_models.FullProxy) -> Proxy:
+    def from_source(cls, source: source_models.FullProxy, relationships: dict[int, list[source_models.ProxyTag]]) -> Proxy:
         return cls(
             id=source.id,
             name=source.name,
@@ -68,6 +70,7 @@ class Proxy(BaseModel):
             current_form=source.current_form,
             pronouns=source.pronouns,
             times_used=source.times_used,
+            effective_name=source.effective_name(relationships.get(source.id, []))
         )
 
     def to_source(self, id_slot: int, owner: UserID) -> source_models.FullProxy:

@@ -35,9 +35,13 @@ def _():
         proxies = await app.context.database.proxies.full_from_user(session.user_id)
         tags = await app.context.database.tags.from_user(session.user_id)
         relationships = await app.context.database.relationships.bulk_get_relationships([proxy.id for proxy in proxies])
+        full_relationships = {
+            k: await app.context.database.tags.fetch_bulk(v)
+            for k, v in relationships.items()
+        }
         return UserData(
             proxies=[
-                Proxy.from_source(proxy) for proxy in proxies
+                Proxy.from_source(proxy, full_relationships) for proxy in proxies
             ],
             tags=[
                 ProxyTag.from_source(tag) for tag in tags

@@ -12,7 +12,9 @@ def setup():
                 "spot",
                 "front",
                 "switch",
-                "switches"
+                "switches",
+                "sw",
+                "sl"
             ]
         }
     )
@@ -34,7 +36,8 @@ def setup():
         {
             "spotlight set": {
                 "set": [
-                    "="
+                    "=",
+                    "s"
                 ]
             }
         },

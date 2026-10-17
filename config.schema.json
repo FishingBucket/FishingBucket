@@ -19,6 +19,9 @@
           "title": "Database",
           "type": "string"
         },
+        "ratelimits": {
+          "$ref": "#/$defs/RateLimits"
+        },
         "fluxer": {
           "$ref": "#/$defs/ApiServerPlatformConfig"
         },
@@ -39,6 +42,7 @@
         "domain",
         "port",
         "database",
+        "ratelimits",
         "fluxer"
       ],
       "title": "ApiServer",
@@ -111,6 +115,26 @@
       "title": "PlatformConfig",
       "type": "object"
     },
+    "RateLimits": {
+      "properties": {
+        "get_info": {
+          "pattern": "\\d+ *(/|per) *(\\d+)? *(second|minute|hour|day|month|year)",
+          "title": "Get Info",
+          "type": "string"
+        },
+        "edit": {
+          "pattern": "\\d+ *(/|per) *(\\d+)? *(second|minute|hour|day|month|year)",
+          "title": "Edit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "get_info",
+        "edit"
+      ],
+      "title": "RateLimits",
+      "type": "object"
+    },
     "WebsiteConfig": {
       "properties": {
         "dashboard": {
@@ -180,7 +204,6 @@
       "type": "string"
     },
     "database_file": {
-      "format": "file-path",
       "title": "Database File",
       "type": "string"
     },

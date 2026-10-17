@@ -1,20 +1,27 @@
 import datetime
 import json
 
-from pydantic import BaseModel, FilePath, HttpUrl, DirectoryPath
+from pydantic import BaseModel, FilePath, HttpUrl, DirectoryPath, Field
 
 from .models import Platform
 
 
+RateLimit = Field(pattern=r"\d+ *(/|per) *(\d+)? *(second|minute|hour|day|month|year)")
+
 class ApiServerPlatformConfig(BaseModel):
     client_id: int
     client_secret: str
+
+class RateLimits(BaseModel):
+    get_info: str = RateLimit
+    edit: str = RateLimit
 
 class ApiServer(BaseModel):
     enabled: bool
     domain: str
     port: int
     database: FilePath
+    ratelimits: RateLimits
     fluxer: ApiServerPlatformConfig
     discord: ApiServerPlatformConfig | None = None
 

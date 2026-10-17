@@ -22,7 +22,7 @@ def _():
         response_model=UserData,
         dependencies=[]
     )
-    @app.limiter.limit("5/minute")
+    @app.limiter.limit(app.context.config.api_server.ratelimits.get_info)
     async def _(request: Request, session: Session = Depends(require_session)) -> UserData:
         if session.user_id == -1:
             return UserData(
@@ -57,7 +57,7 @@ def _():
 
 
     @router.post("/edit", status_code=200)
-    @app.limiter.limit("5/minute")
+    @app.limiter.limit(app.context.config.api_server.ratelimits.edit)
     async def _(request: Request, edits: BatchEdit, session: Session = Depends(require_session)) -> Response:
         try:
             if session.user_id == -1:

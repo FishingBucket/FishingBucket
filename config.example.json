@@ -44,6 +44,10 @@
     "discord": {
       "client_id": 1557239904642138173,
       "client_secret": "Ym9DR7WbqUF3N1yJSu9BoD56TO9eb0hV"
+    },
+    "ratelimits": {
+      "get_info": "10/minute",
+      "edit": "10/minute"
     }
   },
   "website": {

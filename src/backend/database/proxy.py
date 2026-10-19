@@ -35,6 +35,7 @@ class ProxyRepository:
             proxy_id = ID(row["id"])
             proxy.id = proxy_id
             Cache.proxies_from_user.invalidate(proxy.owner)
+            Cache.proxies_from_user_with_triggers.invalidate(proxy.owner)
             return proxy_id
 
 
@@ -47,6 +48,7 @@ class ProxyRepository:
             WHERE id = :id
         """, proxy.to_primitive_dict()):
             Cache.proxy_from_id.invalidate(proxy.id)
+            Cache.proxies_from_user_with_triggers.invalidate(proxy.owner)
 
 
     async def get_uses(self, proxy_id: ID) -> int:
@@ -91,6 +93,7 @@ class ProxyRepository:
             if row is None: return
             Cache.proxy_from_id.invalidate(proxy_id)
             Cache.proxies_from_user.invalidate(UserID(row["owner"]))
+            Cache.proxies_from_user_with_triggers.invalidate(UserID(row["owner"]))
 
 
     async def get(self, proxy_id: ID) -> Proxy | None:

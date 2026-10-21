@@ -365,6 +365,7 @@ def main():
     print()
     print(center("Creating directories..."))
     for path in make_paths:
+        path = path.expanduser()
         try:
             print(center(f"Making {str(path.absolute())}..."))
             path.mkdir(parents=True, exist_ok=True)
@@ -446,6 +447,7 @@ def main():
             ))
             print(H1)
             try:
+                caddy_path = caddy_path.expanduser()
                 print(center(f"Making {str(caddy_path.parent.absolute())}..."))
                 caddy_path.parent.mkdir(parents=True, exist_ok=True)
             except FileExistsError:

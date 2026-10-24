@@ -278,7 +278,8 @@ class Guild(c.Guild[fluxer.Guild, fluxer.Bot]):
 
     async def get_member(self, user_id: int) -> c.Member | None:
         try:
-            return Member(await self.raw.fetch_member(user_id), self.bot)
+            fetched = await self.raw.fetch_member(user_id)
+            return Member(fetched, self.bot)
         except fluxer.NotFound:
             return None
 
@@ -363,8 +364,8 @@ class Message(c.Message[fluxer.Message, fluxer.Bot]):
     def author(self) -> c.User:
         return User(self.raw.author, self.bot)
 
-    async def member(self) -> c.Member:
-        return Member(await self.guild.get_member(self.id), self.bot) # type: ignore # this should not fail
+    async def member(self) -> c.Member | None:
+        return await self.context.get_member(self.author.id)
 
     @property
     def channel(self) -> c.Channel:

@@ -73,7 +73,7 @@ async def send_proxy_message(
             except: # mysterious exception
                 mentioned_user = ref.author
             mention_pref = mentioned_user.mention_preference if mentioned_user else MentionPreference.NO_PREFERENCE
-            mention_str = ref.author.mention
+            mention_str = ref.author.mention if not ref.author.is_bot else ("@" + ref.author.display_name)
 
     allowed_mentions = AllowedMention(
         mention_pref != MentionPreference.PREFER_NO_MENTION, # temporary solution rn

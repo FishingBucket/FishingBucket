@@ -107,7 +107,8 @@ def setup():
                     await get_db().tags.update(tag)
                     updated_tags += 1
                 else:
-                    tag_mapping[tag.id] = await get_db().tags.put(tag)
+                    tag_id = ID(tag.id)
+                    tag_mapping[tag_id] = await get_db().tags.put(tag)
                     inserted_tag_instances.append(tag)
 
             for proxy in cls.proxies:
@@ -119,12 +120,13 @@ def setup():
                     await get_db().proxies.update(proxy)
                     updated_proxies += 1
                 else:
-                    proxy_mapping[proxy.id] = await get_db().proxies.put(proxy)
+                    proxy_id = ID(proxy.id)
+                    proxy_mapping[proxy_id] = await get_db().proxies.put(proxy)
                     inserted_proxy_instances.append(proxy)
 
             for relation_proxy, relation_tags in cls.relationships.items():
-                remapped_proxy = proxy_mapping[relation_proxy]
-                remapped_tags = [tag_mapping[t] for t in relation_tags]
+                remapped_proxy = proxy_mapping.get(relation_proxy, relation_proxy)
+                remapped_tags = [tag_mapping.get(t, t) for t in relation_tags]
                 if remapped_proxy in user_relationships and user_relationships[remapped_proxy] == remapped_tags:
                     continue
                 await get_db().relationships.set_relationship(remapped_proxy, remapped_tags)

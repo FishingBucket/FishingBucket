@@ -69,7 +69,7 @@ def to_send_kwargs(dat: SendMessageData) -> dict:
     return {
         "content": dat.content,
         "embeds": [from_embed(e).to_dict() for e in dat.embeds],
-        "files": [from_file(f).to_dict() for f in dat.files],
+        "files": [from_file(f) for f in dat.files],
         "allowed_mentions": to_allowed_mentions(dat.allowed_mentions)
     }
 

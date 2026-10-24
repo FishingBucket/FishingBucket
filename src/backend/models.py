@@ -72,7 +72,7 @@ class Proxy:
     current_form: str
     pronouns: str
 
-    cached_effective_name: str | None = field(init=False, default=None)
+    cached_effective_name: tuple[tuple[ID], str] | None = field(init=False, default=None)
 
 
     @classmethod
@@ -85,7 +85,7 @@ class Proxy:
 
 
     def effective_name(self, proxy_tags: list[ProxyTag]) -> str:
-        if self.cached_effective_name: return self.cached_effective_name
+        if self.cached_effective_name and self.cached_effective_name[0] == tuple(proxy_tags): return self.cached_effective_name[1]
 
         from .template_utils import Template # i've sinned
         n = self.nickname or self.name
@@ -117,7 +117,7 @@ class Proxy:
                 "tag": effective_tag.make_template_object()
             }, n)
 
-        self.cached_effective_name = n
+        self.cached_effective_name = (tuple(proxy_tags), n)
         return n
 
 

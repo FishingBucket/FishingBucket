@@ -116,7 +116,7 @@ class StringStrategy(Strategy):
 
     async def parse(self, stream: CharacterStream, argument: ParsingArgument, context: Context) -> str:
         quote: None | str = None
-        if stream.peek() in "'\"":
+        if stream.peek() in "'\"«‹‘“":
             quote = stream.consume()
 
         if quote is None and argument.position_end == 0:
@@ -124,15 +124,25 @@ class StringStrategy(Strategy):
             stream.pos = len(stream.data)
             return d
 
+        end_quote: str | None = {
+            "'": "'",
+            '"': '"',
+            "«": "»",
+            "‹": "›",
+            "‘": "’",
+            "“": "”",
+        }.get(quote, None) # type: ignore
+        # we love dynamic typing
+
         s = ""
         while True:
             c = stream.peek()
             if c == "\\":
                 stream.consume()
                 s += stream.consume()
-            elif quote is None and c in (" ", "\0"):
+            elif quote is None and c in " \0":
                 return s
-            elif c == quote:
+            elif c == end_quote:
                 stream.consume()
                 return s
             elif c == "\0":

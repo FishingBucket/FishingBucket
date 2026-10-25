@@ -357,6 +357,10 @@ class Message(c.Message[fluxer.Message, fluxer.Bot]):
         return [RawEmbed(e) for e in self.raw.embeds]
 
     @property
+    def is_thread_start(self) -> bool:
+        return self.raw.thread is not None
+
+    @property
     def attachments(self) -> list[c.Attachment]:
         return [Attachment(attachment, self.bot) for attachment in self.raw.attachments]
 

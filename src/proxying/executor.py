@@ -23,7 +23,7 @@ async def get_webhook(context: Context) -> Webhook | None:
     effective_channel_id = context.message.channel_id
     this_channel = await context.get_this_channel()
 
-    if this_channel.is_thread and (parent_id := context.message.channel.parent_id):
+    if this_channel.is_thread and (parent_id := this_channel.parent_id):
         effective_channel_id = parent_id
 
     if webhook_id := await get_db().guilds.get_channel_webhook(effective_channel_id, context.platform):

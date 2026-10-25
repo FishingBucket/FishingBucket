@@ -21,7 +21,7 @@ async def on_user_message(context: Context):
     if channel.dm:
         return
 
-    if not context.message.text_based:
+    if not context.message.text_based or context.message.is_thread_start:
         return
 
     owner = await get_uid_nullable(context)

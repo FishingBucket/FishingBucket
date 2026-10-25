@@ -351,6 +351,10 @@ class Message(c.Message[discord.Message, discord.Bot]):
         return self.raw.type in {discord.MessageType.default, discord.MessageType.reply}
 
     @property
+    def is_thread_start(self) -> bool:
+        return self.raw.thread is not None
+
+    @property
     def mentions_everyone(self) -> bool:
         return self.raw.mention_everyone
 

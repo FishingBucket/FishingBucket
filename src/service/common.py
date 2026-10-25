@@ -284,6 +284,10 @@ class Message[Raw, Bot](ABC):
 
     @property
     @abstractmethod
+    def is_thread_start(self) -> bool: pass
+
+    @property
+    @abstractmethod
     def attachments(self) -> list[Attachment]: pass
 
     @property

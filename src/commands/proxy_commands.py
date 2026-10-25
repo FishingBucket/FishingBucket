@@ -315,7 +315,7 @@ def setup():
             return
 
         if member := await context.message.member():
-            perms = get_db().permissions.compute_effective_permissions(
+            perms = await get_db().permissions.compute_effective_permissions(
                 GuildDat(channel.guild_id, context.platform),
                 channel.id,
                 channel.parent_id,

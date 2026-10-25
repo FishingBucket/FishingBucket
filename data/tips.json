@@ -1,12 +1,22 @@
 [
   "Experiencing slowness? Use `{prefix}ping` to get the bot's latency!",
   "Invite the bot by using `{prefix}invite`! Come have a tea and chat!",
-  "Use `{prefix}import` to import from Tupperbox and PluralKit!",
+  "Use `{prefix}import` to import from Tupperbox, PluralKit, Utter, /plu/ral, and PluralBuddy!",
   "Feature announcements and polls are in the support community!",
   "Tips refresh every 5 minutes!",
-  "Group your proxies together by using `{prefix}group add`!",
+  "Organize your proxies together by using `{prefix}tag register`!",
   "Rome wasn't made in a day but {name} is* (not really).",
   "Use something like `\\{\\{1 + 2\\}\\}` in proxied messages to do quick calculations or dice!",
   "Follow {name}'s development in the support community!",
-  "Come join us on other platforms!"
+  "Come join us on other platforms!",
+  "{name} believes in :transgender_flag: trans rights!",
+  "{name} also believes in :transgender_flag: trans wrongs!",
+  "waf,,",
+  "React to a message with :x: to delete it!",
+  "Want to exclude a channel from proxying? Try `{prefix}permissions set`!",
+  "Did you know? Prof. Fischein Buck. It was forced to put on a new different face everyday.",
+  "Also try Minecraft!",
+  "Guess how many tips are literally useful?",
+  "Traceback (most recent call last):\\n  File \"src/main.py\", line 60\\nMemoryError",
+  "Wanna help {name}? Consider contributing!"
 ]

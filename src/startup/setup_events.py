@@ -48,7 +48,13 @@ async def handle_message(context: Context):
         editing_proxy_messages.pop(key)
         lnk = await get_db().guilds.get_message_link(MessageDat(msg.id, msg.channel_id, context.platform))
         uid = await get_db().users.get_user_id(SSOID(context.author.id), context.platform)
-        if lnk and uid and (channel := await context.get_channel(lnk.dat.channel_id)) and (member := await context.get_member(context.author.id)):
+        if (
+                lnk and
+                uid and
+                (channel := await context.get_channel(lnk.dat.channel_id)) and
+                (guild := await context.bot.get_guild(channel.guild_id)) and
+                (member := await guild.get_member(context.author.id))
+        ):
             roles = await member.roles()
             perms = await get_db().permissions.compute_effective_permissions(
                 GuildDat(

@@ -124,8 +124,7 @@ def setup():
         for id_type in (
             IDType.BASE,
             IDType.CHANNEL,
-            IDType.ROLE,
-            IDType.USER
+            IDType.ROLE
         ):
             if not preferences[id_type]: continue
 
@@ -135,8 +134,6 @@ def setup():
                 prefix = "Channels"
             elif id_type == IDType.ROLE:
                 prefix = "Roles"
-            elif id_type == IDType.USER:
-                prefix = "Users"
 
             texts: list[str] = []
             for id_, pair in preferences[id_type].items():
@@ -145,8 +142,6 @@ def setup():
                     id_display = f"<#{id_}>"
                 elif id_type == IDType.ROLE:
                     id_display = f"<@&{id_}>"
-                elif id_type == IDType.USER:
-                    id_display = f"<@{id_}>"
 
                 texts.append(f"{id_display}: allows {", ".join(
                     GUILD_PERMISSION_DISPLAY[t]
@@ -156,7 +151,7 @@ def setup():
                     for t in pair.denies
                 ) if pair.denies else "nothing"}")
 
-            final_text.append(prefix + "\n" + "\n- ".join(texts))
+            final_text.append(prefix + "\n- " + "\n- ".join(texts))
 
         await context.reply("", [Embed(
             "Community Permissions",

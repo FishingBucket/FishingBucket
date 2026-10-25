@@ -303,6 +303,7 @@ def setup():
     @hook_command("edit")
     async def _(context: Context, message: str):
         uid = await get_uid(context)
+        channel = await context.get_this_channel()
 
         message_link, ref = await require_reply(context)
 
@@ -313,6 +314,15 @@ def setup():
             await context.reply("Error: you do not own the original proxy!")
             return
 
-        await context.message.delete()
-        await edit_proxy_message(ref.context, message, message_link, uid)
+        if member := await context.message.member():
+            perms = get_db().permissions.compute_effective_permissions(
+                GuildDat(channel.guild_id, context.platform),
+                channel.id,
+                channel.parent_id,
+                context.author.id,
+                [role.id for role in (await member.roles())][::-1]
+            )
+
+            await context.message.delete()
+            await edit_proxy_message(ref.context, message, message_link, perms, uid)
 

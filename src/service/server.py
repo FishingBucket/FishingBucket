@@ -11,11 +11,10 @@ from fluxer import gateway as fluxer_gateway
 from .common import Bot as BotT
 from .discord import Bot as DiscordBot
 from .fluxer import Bot as FluxerBot
-from ..backend.config import Config
-from ..backend.data_reader import DataReader
 from ..backend.logging import start_log
 from ..backend.models import Platform
 from ..backend.template_utils import Template
+from ..context import config, context
 
 type Coro = Callable[..., Coroutine[Any, Any, Any]]
 
@@ -26,8 +25,8 @@ class Server[Bot = fluxer.Bot | discord.Bot](ABC):
     platform: Platform
     ready: bool = False
 
-    async def tip_loop(self, callback: Callable[[str], Awaitable[None]]):
-        tips = DataReader.instance["tips.json"]
+    async def tip_loop(self, platform: str, callback: Callable[[str], Awaitable[None]]):
+        tips = context().data_reader["tips.json"]
         refresh_timer = 5 * 60
 
         current_bucket = tips[:]
@@ -35,12 +34,11 @@ class Server[Bot = fluxer.Bot | discord.Bot](ABC):
         while True:
             if self.ready:
                 tip = current_bucket.pop(0)
-                config = Config.instance
                 parsed = Template.from_string(tip).compute({
-                    "prefix": config.fluxer.prefixes[0],
-                    "config": config,
-                    "platform": "Fluxer",
-                    "name": config.name
+                    "prefix": config().fluxer.prefixes[0],
+                    "config": config(),
+                    "platform": platform,
+                    "name": config().name
                 }, "")
 
                 await callback(parsed)
@@ -93,14 +91,14 @@ class Fluxer(Server[fluxer.Bot]):
         self.tip_loop_task: asyncio.Task | None = None
 
     async def start(self):
-        self.bot = fluxer.Bot(intents=fluxer.Intents.default(), api_url=Config.cfg(Platform.Fluxer).api_url.unicode_string())
+        self.bot = fluxer.Bot(intents=fluxer.Intents.default(), api_url=config().fluxer.api_url.unicode_string())
         for event in self.events:
             self.bot.event(event)
-        if Config.instance.use_extras and (self.tip_loop_task is None or self.tip_loop_task.done()):
-            self.tip_loop_task = asyncio.create_task(self.tip_loop(self.tip_loop_inner))
+        if config().use_extras and (self.tip_loop_task is None or self.tip_loop_task.done()):
+            self.tip_loop_task = asyncio.create_task(self.tip_loop("Fluxer", self.tip_loop_inner))
 
         print("Start Fluxer bot")
-        await self.bot.start(Config.cfg(Platform.Fluxer).token)
+        await self.bot.start(config().fluxer.token)
 
 
     async def close(self):
@@ -146,11 +144,11 @@ class Discord(Server[discord.Bot]):
         for event in self.events:
             self.bot.event(event)
 
-        if Config.instance.use_extras and (self.tip_loop_task is None or self.tip_loop_task.done()):
-            self.tip_loop_task = asyncio.create_task(self.tip_loop(self.tip_loop_inner))
+        if config().use_extras and (self.tip_loop_task is None or self.tip_loop_task.done()):
+            self.tip_loop_task = asyncio.create_task(self.tip_loop("Discord", self.tip_loop_inner))
 
         print("Start Discord bot")
-        await self.bot.start(Config.cfg(Platform.Discord).token)
+        await self.bot.start(config().discord.token)
 
 
     async def close(self):
@@ -177,14 +175,14 @@ class Discord(Server[discord.Bot]):
         return DiscordBot(self.bot, self.bot)
 
 
-ALL_SERVERS = [Fluxer, Discord]
+ALL_SERVERS: list[type[Server]] = [Fluxer, Discord]
 
 SERVER_INSTANCES: list[Server] = []
 PLATFORM_TO_SERVER: dict[Platform, Server] = {}
 
 def setup_instances() -> list[Server]:
     for server in ALL_SERVERS:
-        if Config.cfg(server.platform):
+        if config().cfg(server.platform):
             s = server()
             SERVER_INSTANCES.append(s)
             PLATFORM_TO_SERVER[s.platform] = s

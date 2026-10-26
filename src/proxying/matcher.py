@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 
-from ..backend.database.database import get_db
 from ..backend.database.permission import GuildPermissions
 from ..backend.database.user import UserID
 from ..backend.database.user_setting import AutoproxyPreference, AutoproxyType
 from ..backend.models import Proxy
 from ..backend.template_utils import Template
 from ..backend.utils import normalize_emojis, DelimitedString
+from ..context import database
 
 
 @dataclass(slots=True)
@@ -48,10 +48,10 @@ def get_proxy_from_text(text: str, user_proxies: list[Proxy]) -> ProxiedMessage 
 
 
 async def get_first_spotlight_proxies(uid: UserID) -> Proxy | None:
-    user_settings = await get_db().user_settings.get_user_preference(uid)
+    user_settings = await database().user_settings.get_user_preference(uid)
     spotlights = user_settings.spotlight
     if spotlights:
-        return await get_db().proxies.get(spotlights[0])
+        return await database().proxies.get(spotlights[0])
 
     return None
 
@@ -63,7 +63,7 @@ async def get_proxied_messages(
         autoproxy_preferences: AutoproxyPreference | None
 ) -> list[ProxiedMessage]:
     autoproxy_proxy = None
-    user_proxies = await get_db().proxies.from_user_with_triggers(user_id)
+    user_proxies = await database().proxies.from_user_with_triggers(user_id)
 
     if autoproxy_preferences and not autoproxy_preferences.do_expire_now():
         if autoproxy_preferences.type == AutoproxyType.SPOTLIGHT:
@@ -71,7 +71,7 @@ async def get_proxied_messages(
         else:
             prox_id = autoproxy_preferences.set_proxy if autoproxy_preferences.set_proxy is not None else autoproxy_preferences.last_used_proxy
             if prox_id is not None:
-                autoproxy_proxy = await get_db().proxies.get(prox_id)
+                autoproxy_proxy = await database().proxies.get(prox_id)
 
     if GuildPermissions.MULTIPROXY in permissions:
         res: list[ProxiedMessage] = []

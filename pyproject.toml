@@ -18,5 +18,7 @@ dependencies = [
     "humanfriendly>=10.0",
     "json5",
     "slowapi",
-    "aiohttp"
+    "aiohttp",
+    "aioboto3",
+    "aiobotocore"
 ]

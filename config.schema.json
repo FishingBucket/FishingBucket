@@ -126,13 +126,50 @@
           "pattern": "\\d+ *(/|per) *(\\d+)? *(second|minute|hour|day|month|year)",
           "title": "Edit",
           "type": "string"
+        },
+        "s3_upload": {
+          "pattern": "\\d+ *(/|per) *(\\d+)? *(second|minute|hour|day|month|year)",
+          "title": "S3 Upload",
+          "type": "string"
         }
       },
       "required": [
         "get_info",
-        "edit"
+        "edit",
+        "s3_upload"
       ],
       "title": "RateLimits",
+      "type": "object"
+    },
+    "S3Config": {
+      "properties": {
+        "endpoint": {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "title": "Endpoint",
+          "type": "string"
+        },
+        "key_id": {
+          "title": "Key Id",
+          "type": "string"
+        },
+        "bucket_name": {
+          "title": "Bucket Name",
+          "type": "string"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "endpoint",
+        "key_id",
+        "bucket_name",
+        "key"
+      ],
+      "title": "S3Config",
       "type": "object"
     },
     "WebsiteConfig": {
@@ -260,6 +297,17 @@
       "anyOf": [
         {
           "$ref": "#/$defs/WebsiteConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "s3": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/S3Config"
         },
         {
           "type": "null"

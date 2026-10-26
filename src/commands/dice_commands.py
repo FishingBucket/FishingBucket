@@ -6,10 +6,10 @@ import expr_dice_roller as dice
 from .generic import hook_command
 from .specific import get_uid_nullable, get_or_make_uid
 from .utils import require_permissions
-from ..backend.database.database import get_db
 from ..backend.dice_environments import global_functions
 from ..backend.models import GuildDat
 from ..backend.utils import roll_dice
+from ..context import database
 from ..service import Context, Embed
 
 
@@ -20,9 +20,9 @@ def setup():
         uid = await get_uid_nullable(context)
         guild_id = channel.guild_id
         user_fns: bytes | None = None
-        if uid: user_fns = (await get_db().user_settings.get_user_preference(uid)).dice_functions
+        if uid: user_fns = (await database().user_settings.get_user_preference(uid)).dice_functions
         guild = GuildDat(guild_id, context.platform)
-        guild_fns = (await get_db().guilds.get_guild_preferences(guild)).dice_functions
+        guild_fns = (await database().guilds.get_guild_preferences(guild)).dice_functions
         evaluator = dice.Evaluator()
         if user_fns:
             user_env = dice.Environment.deserialize(evaluator, user_fns)
@@ -58,10 +58,10 @@ def setup():
         guild_fns = None
         env = None
         if (target == "user" or target == "all") and uid:
-            fns = (await get_db().user_settings.get_user_preference(uid)).dice_functions
+            fns = (await database().user_settings.get_user_preference(uid)).dice_functions
             user_fns = fns
         if target == "community" or target == "all":
-            fns = (await get_db().guilds.get_guild_preferences(guild)).dice_functions
+            fns = (await database().guilds.get_guild_preferences(guild)).dice_functions
             guild_fns = fns
         if target == "global":
             env = global_functions()
@@ -112,7 +112,7 @@ def setup():
     async def _(context: Context, target: Literal["user"] | Literal["community"], name: str, expression: str):
         if target == "user":
             uid = await get_or_make_uid(context)
-            user_preferences = await get_db().user_settings.get_user_preference(uid)
+            user_preferences = await database().user_settings.get_user_preference(uid)
             fns = user_preferences.dice_functions
             preface = "Your"
         else:
@@ -120,7 +120,7 @@ def setup():
             channel = await context.get_this_channel()
             guild_id = channel.guild_id
             guild = GuildDat(guild_id, context.platform)
-            guild_preferences = await get_db().guilds.get_guild_preferences(guild)
+            guild_preferences = await database().guilds.get_guild_preferences(guild)
             fns = guild_preferences.dice_functions
             preface = "This community's"
 
@@ -143,13 +143,13 @@ def setup():
             env.assign(name, val)
             embed = Embed("Dice Variable Set", f"{preface} dice variables has been updated!\n`{name}` = {val:g}")
 
-        async with get_db().transaction():
+        async with database().transaction():
             if target == "user":
                 user_preferences = replace(user_preferences, dice_functions=env.serialize())
-                await get_db().user_settings.set_user_preference(uid, user_preferences)
+                await database().user_settings.set_user_preference(uid, user_preferences)
             else:
                 guild_preferences = replace(guild_preferences, dice_functions=env.serialize())
-                await get_db().guilds.set_guild_preferences(guild_preferences)
+                await database().guilds.set_guild_preferences(guild_preferences)
 
         await context.reply("", [embed])
 
@@ -158,7 +158,7 @@ def setup():
     async def _(context: Context, target: Literal["user"] | Literal["community"], name: str):
         if target == "user":
             uid = await get_or_make_uid(context)
-            user_preferences = await get_db().user_settings.get_user_preference(uid)
+            user_preferences = await database().user_settings.get_user_preference(uid)
             fns = user_preferences.dice_functions
             preface = "Your"
         else:
@@ -166,7 +166,7 @@ def setup():
             channel = await context.get_this_channel()
             guild_id = channel.guild_id
             guild = GuildDat(guild_id, context.platform)
-            guild_preferences = await get_db().guilds.get_guild_preferences(guild)
+            guild_preferences = await database().guilds.get_guild_preferences(guild)
             fns = guild_preferences.dice_functions
             preface = "This community's"
 
@@ -178,13 +178,13 @@ def setup():
         if name in env.variables:
             env.variables.pop(name)
 
-        async with get_db().transaction():
+        async with database().transaction():
             if target == "user":
                 user_preferences = replace(user_preferences, dice_functions=env.serialize())
-                await get_db().user_settings.set_user_preference(uid, user_preferences)
+                await database().user_settings.set_user_preference(uid, user_preferences)
             else:
                 guild_preferences = replace(guild_preferences, dice_functions=env.serialize())
-                await get_db().guilds.set_guild_preferences(guild_preferences)
+                await database().guilds.set_guild_preferences(guild_preferences)
 
         await context.reply("", [Embed(
             "Dice Variable Removed",

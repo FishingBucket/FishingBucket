@@ -5,11 +5,11 @@ from aiohttp import ClientSession
 
 from .generic import hook_command
 from .specific import get_uid, get_or_make_uid
-from ..backend.database.database import get_db
 from ..backend.import_system import NativeImporter, TupperboxImporter, PluralKitImporter, UtterImporter, NativeExporter, \
     Importer, PluRalImporter, PluralBuddyImporter
 from ..backend.logging import start_log
 from ..backend.models import ProxyTag, Proxy, ID
+from ..context import database
 from ..service import Context, Embed, File
 
 print, error = start_log("im/exporter")
@@ -84,9 +84,9 @@ def setup():
             await confirmation.reply(f"Error: cannot parse file")
             return
 
-        user_proxies = await get_db().proxies.from_user(owner)
-        user_tags = await get_db().tags.from_user(owner)
-        user_relationships = await get_db().relationships.bulk_get_relationships([proxy.id for proxy in user_proxies])
+        user_proxies = await database().proxies.from_user(owner)
+        user_tags = await database().tags.from_user(owner)
+        user_relationships = await database().relationships.bulk_get_relationships([proxy.id for proxy in user_proxies])
 
         updated_proxies = 0
         updated_tags = 0
@@ -97,18 +97,18 @@ def setup():
         tag_mapping: dict[ID, ID] = {}
         proxy_mapping: dict[ID, ID] = {}
 
-        async with get_db().transaction():
+        async with database().transaction():
             for tag in cls.tags:
                 found_tag = [t for t in user_tags if t.name == tag.name]
                 if found_tag:
                     db_tag = found_tag[0]
                     assert db_tag.id is not None
 
-                    await get_db().tags.update(tag)
+                    await database().tags.update(tag)
                     updated_tags += 1
                 else:
                     tag_id = ID(tag.id)
-                    tag_mapping[tag_id] = await get_db().tags.put(tag)
+                    tag_mapping[tag_id] = await database().tags.put(tag)
                     inserted_tag_instances.append(tag)
 
             for proxy in cls.proxies:
@@ -117,11 +117,11 @@ def setup():
                     db_proxy = found_proxy[0]
                     assert db_proxy.id is not None
 
-                    await get_db().proxies.update(proxy)
+                    await database().proxies.update(proxy)
                     updated_proxies += 1
                 else:
                     proxy_id = ID(proxy.id)
-                    proxy_mapping[proxy_id] = await get_db().proxies.put(proxy)
+                    proxy_mapping[proxy_id] = await database().proxies.put(proxy)
                     inserted_proxy_instances.append(proxy)
 
             for relation_proxy, relation_tags in cls.relationships.items():
@@ -129,7 +129,7 @@ def setup():
                 remapped_tags = [tag_mapping.get(t, t) for t in relation_tags]
                 if remapped_proxy in user_relationships and user_relationships[remapped_proxy] == remapped_tags:
                     continue
-                await get_db().relationships.set_relationship(remapped_proxy, remapped_tags)
+                await database().relationships.set_relationship(remapped_proxy, remapped_tags)
 
         inserted_proxies = len(inserted_proxy_instances)
         inserted_tags = len(inserted_tag_instances)
@@ -162,9 +162,9 @@ def setup():
     @hook_command("export")
     async def _(context: Context):
         owner = await get_uid(context)
-        tags = await get_db().tags.from_user(owner)
-        proxies = await get_db().proxies.full_from_user(owner)
-        relationships = await get_db().relationships.bulk_get_relationships([proxy.id for proxy in proxies])
+        tags = await database().tags.from_user(owner)
+        proxies = await database().proxies.full_from_user(owner)
+        relationships = await database().relationships.bulk_get_relationships([proxy.id for proxy in proxies])
         exporter = NativeExporter(proxies, tags, relationships)
         file = File(
             exporter.filename,

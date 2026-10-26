@@ -4,7 +4,7 @@ from datetime import datetime
 
 import expr_dice_roller as dice
 
-from .data_reader import DataReader
+from ..context import context
 from ..service import Attachment, File, Embed
 
 
@@ -38,7 +38,7 @@ async def convert_attachments(message_attachments: list[Attachment]) -> list[Fil
     return parsed_attachments
 
 def normalize_emojis(text: str) -> str:
-    for key, emoji in DataReader.instance["emojis.json"]["forward_map"].items():
+    for key, emoji in context().data_reader["emojis.json"]["forward_map"].items():
         text = text.replace(":" + key + ":", emoji)
     return text
 

@@ -1,4 +1,4 @@
-__all__ = "get_db", "Database"
+__all__ = "Database"
 
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -12,20 +12,13 @@ from .relationship import RelationshipRepository
 from .tag import ProxyTagRepository
 from .user import UserRepository, UserID
 from .user_setting import UserSettingRepository
-from ..data_reader import DataReader
 from ..logging import start_log
+from ...context import context
 
 print, error = start_log("database")
 
-db: Database
-
-def get_db() -> Database:
-    return db
-
 class Database:
     def __init__(self, database_file: str | Path = "../database.db"):
-        global db
-        db = self
         self.connection: sql.Connection = None
         self.database_file = database_file
         self.users = UserRepository(self)
@@ -46,7 +39,7 @@ class Database:
         print("Database connection established")
 
     async def create_tables(self):
-        await self.connection.executescript(DataReader.instance["db_next.sql"])
+        await self.connection.executescript(context().data_reader["db_next.sql"])
         await self.connection.execute("PRAGMA journal_mode=WAL;")
         await self.connection.execute("PRAGMA synchronous=NORMAL;")
         await self.connection.execute("PRAGMA cache_size=-64000;") # 64MB cache
@@ -61,13 +54,13 @@ class Database:
 
     async def migrate(self):
         version = int((await self.get_global_stats()).get("version", 0))
-        migrations_data = DataReader.instance["migrations/stats.json"]
+        migrations_data = context().data_reader["migrations/stats.json"]
         while str(version) in migrations_data:
             data_file = migrations_data[str(version)]
             if data_file == "unsupported":
                 error(ValueError(f"Migrating from version {version} is now unsupported."))
                 return
-            migration_script = DataReader.instance[data_file]
+            migration_script = context().data_reader[data_file]
             try:
                 print(f"Migrating to version {version + 1}")
                 await self.connection.executescript("BEGIN TRANSACTION;" + migration_script + "; COMMIT;")

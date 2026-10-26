@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Callable
 
 from .generic import get_command_invocation, EarlyExitException

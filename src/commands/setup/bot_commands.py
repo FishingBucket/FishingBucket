@@ -3,7 +3,7 @@ import random
 from ..generic import make_command, Argument, make_command_group, get_commands, get_command_groups, CommandGroup, \
     Command
 from ..generic.strategies import OneOf, OptionList, Optional
-from ...backend.config import Config
+from ...context import config
 
 bot_group: CommandGroup
 
@@ -84,7 +84,7 @@ def setup():
     )
 
 
-    if Config.instance.website:
+    if config().website:
         bot_group.append(
             make_command(
                 {
@@ -144,7 +144,7 @@ def setup():
             )
         )
 
-    if Config.instance.donation:
+    if config().donation:
         bot_group.append(
             make_command(
                 "donate",

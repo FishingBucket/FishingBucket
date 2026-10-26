@@ -4,34 +4,34 @@ from typing import Sequence
 from .generic import hook_command, EarlyExitException
 from .specific import get_uid
 from .utils import paged_proxy_list, cannot_view_proxy_list
-from ..backend.database.database import get_db
 from ..backend.database.user import UserID
 from ..backend.models import Proxy, FullProxy
+from ..context import database
 from ..service import Context, Embed
 
 
 async def get_spotlight_proxies(uid: UserID, reformat = False) -> list[FullProxy]:
-    user_settings = await get_db().user_settings.get_user_preference(uid)
+    user_settings = await database().user_settings.get_user_preference(uid)
     spotlights = user_settings.spotlight
     proxies: list[FullProxy] = []
     for spotlight in spotlights:
-        prox = await get_db().proxies.get_full(spotlight)
+        prox = await database().proxies.get_full(spotlight)
         if prox:
             proxies.append(prox)
 
     if reformat and len(spotlights) != len(proxies):
-        async with get_db().transaction():
-            await get_db().user_settings.set_user_preference(uid, replace(user_settings, spotlight=[proxy.id for proxy in proxies]))
+        async with database().transaction():
+            await database().user_settings.set_user_preference(uid, replace(user_settings, spotlight=[proxy.id for proxy in proxies]))
 
     return proxies
 
 
 async def set_proxies(context: Context, uid: UserID, proxies: Sequence[Proxy]):
-    async with get_db().transaction():
-        await get_db().user_settings.set_user_preference(
+    async with database().transaction():
+        await database().user_settings.set_user_preference(
             uid,
             replace(
-                await get_db().user_settings.get_user_preference(uid),
+                await database().user_settings.get_user_preference(uid),
                 spotlight=[proxy.id for proxy in proxies]
             )
         )
@@ -67,13 +67,13 @@ def setup():
         uid = await get_uid(context)
         proxies = await get_spotlight_proxies(uid, True)
         channel = await context.get_this_channel()
-        preferences = await get_db().user_settings.get_user_preference(uid)
+        preferences = await database().user_settings.get_user_preference(uid)
         if preferences.public_spotlight or channel.dm:
             await paged_proxy_list(
                 context,
                 proxies,
-                await get_db().tags.from_user(uid),
-                await get_db().relationships.bulk_get_relationships([proxy.id for proxy in proxies]),
+                await database().tags.from_user(uid),
+                await database().relationships.bulk_get_relationships([proxy.id for proxy in proxies]),
                 preferences,
                 f"Spotlight of {context.author.display_name}",
                 0,

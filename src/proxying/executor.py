@@ -4,12 +4,12 @@ from typing import Literal
 from .editing import modify_message
 from ..backend.cache import TTLCache
 from ..backend.config import Config
-from ..backend.database.database import get_db
 from ..backend.database.guild import MessageLink
 from ..backend.database.permission import GuildPermissions
 from ..backend.database.user import UserID
 from ..backend.models import Proxy, MessageDat, GuildDat
 from ..backend.utils import convert_attachments, quote, DelimitedString
+from ..context import database, config
 from ..service import Webhook, Context, Attachment, Embed
 from ..service.common import AllowedMention, MentionPreference
 
@@ -26,7 +26,7 @@ async def get_webhook(context: Context) -> Webhook | None:
     if this_channel.is_thread and (parent_id := this_channel.parent_id):
         effective_channel_id = parent_id
 
-    if webhook_id := await get_db().guilds.get_channel_webhook(effective_channel_id, context.platform):
+    if webhook_id := await database().guilds.get_channel_webhook(effective_channel_id, context.platform):
         webhook = await context.bot.get_webhook(webhook_id)
 
     if webhook is None:
@@ -34,9 +34,9 @@ async def get_webhook(context: Context) -> Webhook | None:
         if this_channel.is_thread:
             effective_channel = await context.get_channel(effective_channel_id) # type: ignore # guaranteed i think
             assert effective_channel is not None
-        webhook = await effective_channel.create_webhook(Config.instance.webhook)
+        webhook = await effective_channel.create_webhook(config().webhook)
         if webhook:
-            await get_db().guilds.put_channel_webhook(effective_channel_id, context.platform, webhook.id)
+            await database().guilds.put_channel_webhook(effective_channel_id, context.platform, webhook.id)
 
     if webhook:
         webhook_cache.set(context.message.channel_id, webhook)
@@ -62,8 +62,8 @@ async def send_proxy_message(
 
     mention_pref = MentionPreference.NO_PREFERENCE
     if ref:
-        lnk = await get_db().guilds.get_message_link(MessageDat(ref.id, ref.channel_id, context.platform))
-        if lnk and (parent_proxy := await get_db().proxies.get(lnk.proxy_id)):
+        lnk = await database().guilds.get_message_link(MessageDat(ref.id, ref.channel_id, context.platform))
+        if lnk and (parent_proxy := await database().proxies.get(lnk.proxy_id)):
             mentioned_user = await context.get_member(lnk.platform_user) or await context.get_user(lnk.platform_user)
             mention_pref = mentioned_user.mention_preference if mentioned_user else MentionPreference.NO_PREFERENCE
             mention_str = f"{parent_proxy.name} (<@{lnk.platform_user}>)"
@@ -86,12 +86,12 @@ async def send_proxy_message(
 
     message, embeds = await modify_message(
         proxy.owner,
-        await get_db().guilds.get_guild_preferences(GuildDat(channel.guild_id, context.platform)),
+        await database().guilds.get_guild_preferences(GuildDat(channel.guild_id, context.platform)),
         permissions,
         message
     )
 
-    name = proxy.effective_name(await get_db().tags.fetch_bulk(await get_db().relationships.get_relationships(proxy.id)))
+    name = proxy.effective_name(await database().tags.fetch_bulk(await database().relationships.get_relationships(proxy.id)))
 
     if ref and do_reply:
         return await webhook.reply(
@@ -115,7 +115,7 @@ async def reproxy(message_link: MessageLink, context: Context, old_proxy: Proxy,
         return
 
     guild = GuildDat(channel.guild_id, context.platform)
-    guild_preferences = await get_db().guilds.get_guild_preferences(guild)
+    guild_preferences = await database().guilds.get_guild_preferences(guild)
 
     fixed_message = await webhook.get_message_data(context)
     contents = fixed_message.content
@@ -124,9 +124,9 @@ async def reproxy(message_link: MessageLink, context: Context, old_proxy: Proxy,
     parent_message = await fixed_message.get_reference()
 
     await context.message.delete()
-    await get_db().guilds.delete_link_message(MessageDat(context.message.id, context.channel.id, context.platform))
+    await database().guilds.delete_link_message(MessageDat(context.message.id, context.channel.id, context.platform))
 
-    name = new_proxy.effective_name(await get_db().tags.fetch_bulk(await get_db().relationships.get_relationships(new_proxy.id)))
+    name = new_proxy.effective_name(await database().tags.fetch_bulk(await database().relationships.get_relationships(new_proxy.id)))
 
     mentions_original = await context.message.mentions_original()
     allowed_mention = AllowedMention(
@@ -149,13 +149,13 @@ async def reproxy(message_link: MessageLink, context: Context, old_proxy: Proxy,
             files=await convert_attachments(attachments), allowed_mentions=allowed_mention, thread_id=thread_id
         )
 
-    await get_db().proxies.transfer_usage(old_proxy.id, new_proxy.id)
+    await database().proxies.transfer_usage(old_proxy.id, new_proxy.id)
 
-    autoproxy = await get_db().user_settings.get_autoproxy_preference(old_proxy.owner, guild)
+    autoproxy = await database().user_settings.get_autoproxy_preference(old_proxy.owner, guild)
     if autoproxy:
-        await get_db().user_settings.set_autoproxy_preference(old_proxy.owner, replace(autoproxy, last_used_proxy=new_proxy.id))
+        await database().user_settings.set_autoproxy_preference(old_proxy.owner, replace(autoproxy, last_used_proxy=new_proxy.id))
 
-    await get_db().guilds.link_message(MessageLink(
+    await database().guilds.link_message(MessageLink(
         MessageDat(
             m.id, context.channel.id, context.platform
         ),
@@ -170,7 +170,7 @@ async def reproxy(message_link: MessageLink, context: Context, old_proxy: Proxy,
             str(
                 DelimitedString("\n") +
                 f"**Previous Proxy**: {old_proxy.effective_name(
-                    await get_db().tags.fetch_bulk(await get_db().relationships.get_relationships(old_proxy.id))
+                    await database().tags.fetch_bulk(await database().relationships.get_relationships(old_proxy.id))
                 )}" +
                 f"**New Proxy**: {name}" +
                 f"**Owner**: <@{message_link.platform_user}> (`{message_link.platform_user}`)" +
@@ -191,7 +191,7 @@ async def edit_proxy_message(old_message: Context, new_message_contents: str, me
 
     guild = GuildDat(channel.guild_id, old_message.platform)
 
-    server_preferences = await get_db().guilds.get_guild_preferences(guild)
+    server_preferences = await database().guilds.get_guild_preferences(guild)
     contents, embeds = await modify_message(owner, server_preferences, permissions, new_message_contents)
 
     await webhook.edit(
@@ -204,14 +204,14 @@ async def edit_proxy_message(old_message: Context, new_message_contents: str, me
     if (
             logging_channel_id and
             (logging_channel := await old_message.get_channel(logging_channel_id)) and
-            (proxy := await get_db().proxies.get(message_link.proxy_id))
+            (proxy := await database().proxies.get(message_link.proxy_id))
     ):
         embed = Embed(
             f"Message Edit",
             str(
                 DelimitedString("\n") +
                 f"**Proxy**: {proxy.effective_name(
-                    await get_db().tags.fetch_bulk(await get_db().relationships.get_relationships(proxy.id))
+                    await database().tags.fetch_bulk(await database().relationships.get_relationships(proxy.id))
                 )}" +
                 f"**Owner**: <@{message_link.platform_user}> (`{message_link.platform_user}`)" +
                 f"**Channel**: <#{old_message.channel.id}> (`{old_message.channel.id}`)" +

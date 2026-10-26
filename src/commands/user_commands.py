@@ -7,11 +7,10 @@ from lorem_text import lorem
 
 from .generic import hook_command
 from .specific import get_uid
-from ..backend.config import Config
-from ..backend.database.database import get_db
 from ..backend.database.user import UserID, SSOID
 from ..backend.database.user_setting import UserPreference
 from ..backend.models import Platform
+from ..context import database, config
 from ..interaction import Interactions, Interaction
 from ..service import Context, Embed, ReactionActionEvent
 from ..service.server import PLATFORM_TO_SERVER
@@ -24,7 +23,7 @@ def setup():
     @hook_command("privacy list")
     async def _(context: Context):
         uid = await get_uid(context)
-        preferences = await get_db().user_settings.get_user_preference(uid)
+        preferences = await database().user_settings.get_user_preference(uid)
 
         m = {
             "description": preferences.public_description,
@@ -51,7 +50,7 @@ def setup():
             options = ["description", "triggers", "metadata", "tags", "list", "forms", "pronouns", "spotlight"]
 
         uid = await get_uid(context)
-        preferences = await get_db().user_settings.get_user_preference(uid)
+        preferences = await database().user_settings.get_user_preference(uid)
 
         m: dict[str, Callable[[UserPreference, bool], UserPreference]] = {
             "description": lambda p, v: replace(p, public_description=v),
@@ -68,8 +67,8 @@ def setup():
         for option in options:
             preferences = m[option](preferences, public)
 
-        async with get_db().transaction():
-            await get_db().user_settings.set_user_preference(uid, preferences)
+        async with database().transaction():
+            await database().user_settings.set_user_preference(uid, preferences)
 
         await context.reply("", [Embed(
             "Privacy Set!",
@@ -98,7 +97,7 @@ def setup():
         account_links[new_code] = uid, key, now, "@" + context.author.full_tag
 
         await channel.send(f"Execute this entire command from the account that you want to link from to complete the process!")
-        await channel.send(f"{Config.prefix(context.platform)}link code {new_code}")
+        await channel.send(f"{config().cfg(context.platform).prefixes[0]}link code {new_code}")
 
         this_channel = await context.get_this_channel()
         if not this_channel.dm:
@@ -124,7 +123,7 @@ def setup():
             await context.reply("Error: you cannot link yourself to yourself.")
             return
 
-        self = await get_db().users.get_user_id(SSOID(context.author.id), context.platform)
+        self = await database().users.get_user_id(SSOID(context.author.id), context.platform)
         if uid == self:
             await context.reply("Error: you are already linked with that account.")
             return
@@ -137,8 +136,8 @@ def setup():
 
         async def cb(event: ReactionActionEvent) -> bool:
             if event.emoji == "✅":
-                async with get_db().transaction():
-                    await get_db().users.link_accounts(uid, SSOID(context.author.id), context.platform)
+                async with database().transaction():
+                    await database().users.link_accounts(uid, SSOID(context.author.id), context.platform)
 
                 await context.reply("Successfully linked your account!")
 
@@ -160,7 +159,7 @@ def setup():
     async def _(context: Context):
         uid = await get_uid(context)
 
-        accounts = await get_db().users.get_accounts(uid)
+        accounts = await database().users.get_accounts(uid)
         accounts_str = []
 
         for account in accounts:
@@ -195,7 +194,7 @@ def setup():
     @hook_command("unlink")
     async def _(context: Context):
         uid = await get_uid(context)
-        linkers = await get_db().users.get_accounts(uid)
+        linkers = await database().users.get_accounts(uid)
         if len(linkers) == 1:
             await context.reply("Error: you cannot unlink the only remaining user.")
             return
@@ -205,8 +204,8 @@ def setup():
 
         async def cb(event: ReactionActionEvent) -> bool:
             if event.emoji == "✅":
-                async with get_db().transaction():
-                    await get_db().users.unlink_account(SSOID(context.author.id), context.platform)
+                async with database().transaction():
+                    await database().users.unlink_account(SSOID(context.author.id), context.platform)
 
                 await context.reply("Successfully unlinked your account!")
                 return True
@@ -229,8 +228,8 @@ def setup():
 
         async def cb(event: ReactionActionEvent):
             if event.emoji == "✅":
-                async with get_db().transaction():
-                    await get_db().delete_account(owner)
+                async with database().transaction():
+                    await database().delete_account(owner)
 
                 await context.reply(f"Successfully deleted your account!")
 

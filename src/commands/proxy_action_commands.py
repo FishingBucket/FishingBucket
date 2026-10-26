@@ -4,10 +4,10 @@ from typing import Literal, Tuple
 from .generic import hook_command
 from .specific import get_uid
 from .utils import example_trigger_text
-from ..backend.database.database import get_db
 from ..backend.models import FullProxy, ProxyTag
 from ..backend.template_utils import Template
 from ..backend.utils import normalize_emojis, quote
+from ..context import database
 from ..interaction import Interactions, Interaction
 from ..service import Context, ReactionActionEvent, Embed
 
@@ -20,8 +20,8 @@ def setup():
         else:
             avatar_url = context.message.attachments[0].url
 
-        async with get_db().transaction():
-            await get_db().proxies.update(replace(proxy, avatar_url=avatar_url))
+        async with database().transaction():
+            await database().proxies.update(replace(proxy, avatar_url=avatar_url))
 
         embed = Embed(
             "Proxy Updated!",
@@ -49,8 +49,8 @@ def setup():
                 new_triggers.append(trigger.string)
                 new_triggers = [*set(new_triggers)]
 
-        async with get_db().transaction():
-            await get_db().proxies.update(replace(proxy, triggers=new_triggers))
+        async with database().transaction():
+            await database().proxies.update(replace(proxy, triggers=new_triggers))
 
         if new_triggers:
             newest = Template.from_string(new_triggers[-1])
@@ -73,8 +73,8 @@ def setup():
         old_name = proxy.name
         new_name = normalize_emojis(new_name)
 
-        async with get_db().transaction():
-            await get_db().proxies.update(replace(proxy, name=new_name))
+        async with database().transaction():
+            await database().proxies.update(replace(proxy, name=new_name))
 
         embed = Embed(
             "Proxy Updated!",
@@ -88,8 +88,8 @@ def setup():
         old_name = proxy.name
         new_nickname = normalize_emojis(new_nickname)
 
-        async with get_db().transaction():
-            await get_db().proxies.update(replace(proxy, nickname=new_nickname))
+        async with database().transaction():
+            await database().proxies.update(replace(proxy, nickname=new_nickname))
 
         embed = Embed(
             "Proxy Updated!",
@@ -101,8 +101,8 @@ def setup():
 
     @hook_command("set pronouns")
     async def _(context: Context, proxy: FullProxy, new_pronouns: str):
-        async with get_db().transaction():
-            await get_db().proxies.update(replace(proxy, pronouns=new_pronouns))
+        async with database().transaction():
+            await database().proxies.update(replace(proxy, pronouns=new_pronouns))
 
         if new_pronouns:
             embed = Embed(
@@ -119,8 +119,8 @@ def setup():
 
     @hook_command("set description")
     async def _(context: Context, proxy: FullProxy, new_description: str):
-        async with get_db().transaction():
-            await get_db().proxies.update(replace(proxy, description=new_description))
+        async with database().transaction():
+            await database().proxies.update(replace(proxy, description=new_description))
 
         if new_description:
             embed = Embed(
@@ -138,7 +138,7 @@ def setup():
 
     @hook_command("set tags")
     async def _(context: Context, proxy: FullProxy, mode: Literal["add"] | Literal["remove"], tags: list[ProxyTag]) -> None:
-        proxy_tags = (await get_db().relationships.get_relationships(proxy.id))[:]
+        proxy_tags = (await database().relationships.get_relationships(proxy.id))[:]
 
         if mode == "add":
             for tag in tags:
@@ -152,12 +152,12 @@ def setup():
         mod = "changed" if proxy_tags else "cleared"
         more = ""
         if proxy_tags:
-            bulk = await get_db().tags.fetch_bulk(proxy_tags)
+            bulk = await database().tags.fetch_bulk(proxy_tags)
 
             more = f" Tags: **{'**, **'.join(tag.name for tag in bulk)}**"
 
-        async with get_db().transaction():
-            await get_db().relationships.set_relationship(proxy.id, proxy_tags)
+        async with database().transaction():
+            await database().relationships.set_relationship(proxy.id, proxy_tags)
 
         await context.reply("", [Embed(
             "Proxy Updated!",
@@ -198,8 +198,8 @@ def setup():
             else:
                 forms = {}
 
-        async with get_db().transaction():
-            await get_db().proxies.update(replace(proxy, forms=forms, current_form=curr_form))
+        async with database().transaction():
+            await database().proxies.update(replace(proxy, forms=forms, current_form=curr_form))
 
         forms_texts = []
         for fname, furl in forms.items():
@@ -218,19 +218,19 @@ def setup():
 
     @hook_command("set current form")
     async def _(context: Context, proxy: FullProxy, form: str):
-        effective_name = proxy.effective_name(await get_db().tags.fetch_bulk(await get_db().relationships.get_relationships(proxy.id)))
+        effective_name = proxy.effective_name(await database().tags.fetch_bulk(await database().relationships.get_relationships(proxy.id)))
 
         if not form:
-            async with get_db().transaction():
-                await get_db().proxies.update(replace(proxy, current_form=""))
+            async with database().transaction():
+                await database().proxies.update(replace(proxy, current_form=""))
 
             await context.reply("", [Embed(
                 "Proxy Updated!",
                 f"The current form for **{effective_name}** has been reset."
             )])
         elif form in proxy.forms:
-            async with get_db().transaction():
-                await get_db().proxies.update(replace(proxy, current_form=form))
+            async with database().transaction():
+                await database().proxies.update(replace(proxy, current_form=form))
 
             await context.reply("", [Embed(
                 "Proxy Updated!",
@@ -247,8 +247,8 @@ def setup():
 
         async def cb(event: ReactionActionEvent) -> bool:
             if event.emoji == "✅":
-                async with get_db().transaction():
-                    await get_db().proxies.delete(proxy.id)
+                async with database().transaction():
+                    await database().proxies.delete(proxy.id)
 
                 await m.reply(f"Successfully removed **{proxy.name}**!")
                 return True
@@ -264,8 +264,8 @@ def setup():
     @hook_command("nuke")
     async def _(context: Context):
         owner = await get_uid(context)
-        proxies = await get_db().proxies.from_user(owner)
-        tags = await get_db().tags.from_user(owner)
+        proxies = await database().proxies.from_user(owner)
+        tags = await database().tags.from_user(owner)
 
         if not proxies and not tags:
             await context.reply("You have no proxies nor proxy tags to delete!")
@@ -276,8 +276,8 @@ def setup():
 
         async def cb(event: ReactionActionEvent) -> bool:
             if event.emoji == "✅":
-                async with get_db().transaction():
-                    await get_db().nuke(owner)
+                async with database().transaction():
+                    await database().nuke(owner)
 
                 await m.reply(f"Successfully nuked your proxies!")
                 return True

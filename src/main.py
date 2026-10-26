@@ -3,27 +3,20 @@ import signal
 import time
 import os
 
-from .backend.config import Config
+from .backend.config import config_from_file
+from .context import new_context, context
 
 
 def run(config_file: str):
-    Config(config_file)
+    new_context(config_from_file(config_file))
 
-    from .backend.database.database import Database, get_db
-    from .backend.data_reader import DataReader
     from .backend.logging import start_log
     from .interaction import Interactions
-    from .backend.cache import CacheStatus
     from . import commands
-    from .api_server import app as api_app, ApplicationContext
     from .startup import setup_events, setup_commands
     from .service.server import setup_instances
 
     print, error = start_log("main")
-
-    Database(Config.instance.database_file)
-    DataReader(Config.instance.data_path)
-    CacheStatus()
 
     setup_commands.setup()
     commands.setup_commands()
@@ -35,8 +28,8 @@ def run(config_file: str):
 
     async def run_once():
         starts = [asyncio.Future()] + [server.start() for server in servers]
-        ends = [get_db().close()] + [server.close() for server in servers]
-        if Config.instance.api_server:
+        ends = [context().close()] + [server.close() for server in servers]
+        if api_app := context().api_app:
             starts.append(api_app.serve())
             ends.append(api_app.close())
 
@@ -65,12 +58,11 @@ def run(config_file: str):
         err: BaseException | None = None
         try:
             try:
-                asyncio.run(get_db().init())
+                asyncio.run(context().start())
 
                 for server in servers:
                     setup_events.setup(server)
 
-                api_app.set_context(ApplicationContext(get_db(), Config.instance))
                 asyncio.run(run_once())
             except (SystemExit, KeyboardInterrupt) as e:
                 shutdown(repr(e))

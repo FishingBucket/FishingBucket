@@ -6,12 +6,12 @@ from textdistance import damerau_levenshtein as edit_distance
 from .generic import hook_command, EarlyExitException
 from .specific import get_uid, get_or_make_uid
 from .utils import example_trigger_text, paged_proxy_list, get_proxy_text
-from ..backend.database.database import get_db
 from ..backend.database.guild import MessageLink
 from ..backend.database.user_setting import AutoproxyType, AutoproxyPreference
 from ..backend.models import ID, MessageDat, GuildDat, FullProxy
 from ..backend.template_utils import Template
 from ..backend.utils import normalize_emojis, quote
+from ..context import database
 from ..proxying.executor import reproxy, edit_proxy_message
 from ..service import Context, Embed, Message
 
@@ -21,11 +21,11 @@ async def require_reply(context: Context) -> tuple[MessageLink, Message]:
 
     if ref := await context.message.get_reference():
         message_id = ref.id
-        message_link = await get_db().guilds.get_message_link(MessageDat(
+        message_link = await database().guilds.get_message_link(MessageDat(
             message_id, context.channel.id, context.platform
         ))
     else:
-        message_link = await get_db().guilds.latest_message_link_from_user(context.channel.id, context.platform, uid)
+        message_link = await database().guilds.latest_message_link_from_user(context.channel.id, context.platform, uid)
 
     if not message_link or not (message := await context.channel.get_message(message_link.dat.message_id)):
         await context.reply("Error: there are no previous proxied messages from you in this channel!")
@@ -44,8 +44,8 @@ def setup():
         else:
             avatar_url = context.message.attachments[0].url
 
-        async with get_db().transaction():
-            new_proxy_id = await get_db().proxies.put(
+        async with database().transaction():
+            new_proxy_id = await database().proxies.put(
                 FullProxy(
                     ID(0),
                     name,
@@ -77,10 +77,10 @@ def setup():
 
         await paged_proxy_list(
             context,
-            proxies := await get_db().proxies.full_from_user(uid),
-            await get_db().tags.from_user(uid),
-            await get_db().relationships.bulk_get_relationships([proxy.id for proxy in proxies]),
-            await get_db().user_settings.get_user_preference(uid),
+            proxies := await database().proxies.full_from_user(uid),
+            await database().tags.from_user(uid),
+            await database().relationships.bulk_get_relationships([proxy.id for proxy in proxies]),
+            await database().user_settings.get_user_preference(uid),
             f"Registered Proxies of {context.author.display_name}",
             page,
             channel.dm or detailed
@@ -92,7 +92,7 @@ def setup():
         uid = await get_uid(context)
 
         norm_name = normalize_emojis(name)
-        user_proxies = await get_db().proxies.full_from_user(uid)
+        user_proxies = await database().proxies.full_from_user(uid)
 
         errors = []
 
@@ -123,14 +123,14 @@ def setup():
             ))
 
         distanced_proxies = [user_proxies[i] for i in sorted_distances if sorted_distances[i] <= 5]
-        relationships = await get_db().relationships.bulk_get_relationships([proxy.id for proxy in distanced_proxies])
+        relationships = await database().relationships.bulk_get_relationships([proxy.id for proxy in distanced_proxies])
 
         await paged_proxy_list(
             context,
             distanced_proxies,
-            await get_db().tags.from_user(uid),
+            await database().tags.from_user(uid),
             relationships,
-            await get_db().user_settings.get_user_preference(uid),
+            await database().user_settings.get_user_preference(uid),
             f"Proxy Search: **{name}**",
             0,
             False
@@ -148,8 +148,8 @@ def setup():
             proxy.name,
             get_proxy_text(
                 proxy,
-                await get_db().tags.fetch_bulk(await get_db().relationships.get_relationships(proxy.id)),
-                await get_db().user_settings.get_user_preference(uid),
+                await database().tags.fetch_bulk(await database().relationships.get_relationships(proxy.id)),
+                await database().user_settings.get_user_preference(uid),
                 detailed
             ),
             thumbnail_url=proxy.effective_avatar
@@ -163,7 +163,7 @@ def setup():
         message_link, message = await require_reply(context)
 
         proxy_id = message_link.proxy_id
-        old_proxy = await get_db().proxies.get(proxy_id)
+        old_proxy = await database().proxies.get(proxy_id)
 
         if not old_proxy or old_proxy.owner != uid:
             await context.reply("Error: you do not own the original proxy!")
@@ -198,8 +198,8 @@ def setup():
         uid = await get_uid(context)
 
         if setting is True:
-            async with get_db().transaction():
-                await get_db().user_settings.set_autoproxy_preference(uid, AutoproxyPreference(
+            async with database().transaction():
+                await database().user_settings.set_autoproxy_preference(uid, AutoproxyPreference(
                     guild,
                     None,
                     None,
@@ -210,8 +210,8 @@ def setup():
             await context.reply(f"Autoproxy has been set to latch mode {postfix}.")
 
         elif setting == "spotlight":
-            async with get_db().transaction():
-                await get_db().user_settings.set_autoproxy_preference(uid, AutoproxyPreference(
+            async with database().transaction():
+                await database().user_settings.set_autoproxy_preference(uid, AutoproxyPreference(
                     guild,
                     None,
                     None,
@@ -223,22 +223,22 @@ def setup():
 
         elif setting is False:
             if mode is None:
-                async with get_db().transaction():
-                    await get_db().user_settings.remove_all_autoproxy_preference(uid)
+                async with database().transaction():
+                    await database().user_settings.remove_all_autoproxy_preference(uid)
 
                 await context.reply("Autoproxy has been turned off for everything.")
 
             else:
-                async with get_db().transaction():
-                    await get_db().user_settings.remove_single_autoproxy_preference(uid, guild)
+                async with database().transaction():
+                    await database().user_settings.remove_single_autoproxy_preference(uid, guild)
 
                 await context.reply(f"Autoproxy has been turned off {postfix}.")
 
         else:
             assert isinstance(setting, FullProxy)
 
-            async with get_db().transaction():
-                await get_db().user_settings.set_autoproxy_preference(uid, AutoproxyPreference(
+            async with database().transaction():
+                await database().user_settings.set_autoproxy_preference(uid, AutoproxyPreference(
                     guild,
                     setting.id,
                     None,
@@ -255,9 +255,9 @@ def setup():
             await context.reply("Error: reply to a proxied message to use this command.")
             return
 
-        lnk = await get_db().guilds.get_message_link(MessageDat(ref.id, ref.channel_id, context.platform))
+        lnk = await database().guilds.get_message_link(MessageDat(ref.id, ref.channel_id, context.platform))
         if lnk:
-            if proxy := await get_db().proxies.get(lnk.proxy_id):
+            if proxy := await database().proxies.get(lnk.proxy_id):
                 e = Embed(
                     "Proxied Message",
                     f"**Proxy**: {proxy.name}\n**Owner**: <@{lnk.platform_user}> (`{lnk.platform_user}`)\n**Message Link**: [link]({await ref.mention()})\n**Message**:\n{quote(ref.content)}"
@@ -279,16 +279,16 @@ def setup():
 
         message = MessageDat(ref.id, ref.channel_id, context.platform)
 
-        lnk = await get_db().guilds.get_message_link(message)
+        lnk = await database().guilds.get_message_link(message)
         if lnk:
             member = await context.get_member(context.author.id)
             if not member: return
 
             bypasses = bypass and (await context.channel.permissions_for(member)).manage_messages
 
-            if (proxy := await get_db().proxies.get(lnk.proxy_id)) and (bypasses or proxy.owner == await get_uid(context)):
-                async with get_db().transaction():
-                    await get_db().guilds.delete_link_message(message)
+            if (proxy := await database().proxies.get(lnk.proxy_id)) and (bypasses or proxy.owner == await get_uid(context)):
+                async with database().transaction():
+                    await database().guilds.delete_link_message(message)
 
                 await ref.delete()
                 await context.message.delete()
@@ -308,14 +308,14 @@ def setup():
         message_link, ref = await require_reply(context)
 
         proxy_id = message_link.proxy_id
-        old_proxy = await get_db().proxies.get(proxy_id)
+        old_proxy = await database().proxies.get(proxy_id)
 
         if not old_proxy or old_proxy.owner != uid:
             await context.reply("Error: you do not own the original proxy!")
             return
 
         if member := await context.message.member():
-            perms = await get_db().permissions.compute_effective_permissions(
+            perms = await database().permissions.compute_effective_permissions(
                 GuildDat(channel.guild_id, context.platform),
                 channel.id,
                 channel.parent_id,

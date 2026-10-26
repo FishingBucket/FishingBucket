@@ -7,24 +7,24 @@ from ..generic.data import Strategy, SyntaxParseError, ParseError
 from ..generic.misc import escape_string
 from ..generic.strategies import OneOf, HexadecimalStrategy, StringStrategy, IntegerStrategy
 from ...backend.config import Config
-from ...backend.database.database import get_db
 from ...backend.database.user import UserID, SSOID
 from ...backend.models import Proxy, ProxyTag, FullProxy, ID
 from ...backend.template_utils import Template, ExprPart
 from ...backend.utils import normalize_emojis
+from ...context import database
 from ...service import Context
 
 
 async def get_or_make_uid(context: Context) -> UserID:
-    return await get_db().users.get_or_create_user_id(SSOID(context.author.id), context.platform)
+    return await database().users.get_or_create_user_id(SSOID(context.author.id), context.platform)
 
 
 async def get_uid_nullable(context: Context) -> UserID | None:
-    return await get_db().users.get_user_id(SSOID(context.author.id), context.platform)
+    return await database().users.get_user_id(SSOID(context.author.id), context.platform)
 
 
 async def get_uid(context: Context) -> UserID:
-    uid = await get_db().users.get_user_id(SSOID(context.author.id), context.platform)
+    uid = await database().users.get_user_id(SSOID(context.author.id), context.platform)
     if uid is None:
         await context.reply(f"Error: you do not have an account! You can create one by using the `{get_command_invocation('register', context.platform)}` command.")
         raise EarlyExitException()
@@ -40,7 +40,7 @@ class ProxyStrategy(Strategy):
         try:
             prox = await OneOf(hex, str).parse(stream, argument, context)
             if isinstance(prox, int):
-                proxy = await get_db().proxies.get_full(ID(prox))
+                proxy = await database().proxies.get_full(ID(prox))
 
                 if not proxy:
                     raise ParseError("this proxy does not exist")
@@ -50,7 +50,7 @@ class ProxyStrategy(Strategy):
 
             else:
                 norm_name = normalize_emojis(prox)
-                user_proxies = await get_db().proxies.full_from_user(owner)
+                user_proxies = await database().proxies.full_from_user(owner)
                 if not user_proxies:
                     raise ParseError("you do not own any proxies")
 
@@ -99,7 +99,7 @@ class ProxyTagStrategy(Strategy):
         try:
             tg = await OneOf(hex, str).parse(stream, argument, context)
             if isinstance(tg, int):
-                tag = await get_db().tags.get(ID(tg))
+                tag = await database().tags.get(ID(tg))
 
                 if not tag:
                     raise ParseError("this proxy tag does not exist")
@@ -109,7 +109,7 @@ class ProxyTagStrategy(Strategy):
 
             else:
                 norm_name = normalize_emojis(tg)
-                user_tags = await get_db().tags.from_user(owner)
+                user_tags = await database().tags.from_user(owner)
                 if not user_tags:
                     raise ParseError("you do not own any proxy tags")
 

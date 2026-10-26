@@ -6,12 +6,9 @@ from typing import Any
 from .generic import hook_command, get_commands, get_command_groups, strategize, Command, CommandGroup, \
     get_session_command_usages, get_command_invocation, strip_prefix
 from .utils import paged
-from ..backend.cache import CacheStatus
-from ..backend.config import Config
-from ..backend.data_reader import DataReader
-from ..backend.database.database import get_db
 from ..backend.template_utils import Template
 from ..backend.models import Platform
+from ..context import config, database, context as app_context
 from ..service import Context, Embed
 
 
@@ -30,7 +27,7 @@ def setup():
     @hook_command("invite")
     async def _(context: Context):
         def get_invites(plat: Platform) -> tuple[str, str]:
-            return Config.cfg(plat).bot_invite, Config.cfg(plat).guild_invite
+            return config().cfg(plat).bot_invite, config().cfg(plat).guild_invite
 
         bot_invite, server_invite = get_invites(context.platform)
         description = f"Use [this link]({bot_invite}) to invite me to your community!\nSupport community invite: {server_invite}."
@@ -39,7 +36,7 @@ def setup():
             description += "\n\n"
             parts = []
             for platform in Platform:
-                if platform != context.platform and Config.cfg(platform):
+                if platform != context.platform and config().cfg(platform):
                     b, s = get_invites(platform)
                     parts.append(f"Come join us on {platform.name}! [Invite bot]({b}) and [join community]({s})!")
             description += "\n".join(parts)
@@ -63,7 +60,7 @@ def setup():
 
         if topic is None:
             pages = [
-                Template.from_string(DataReader.instance["help.md"])
+                Template.from_string(app_context().data_reader["help.md"])
                 .compute(Template.get_default_metatext_variables(context), "")
             ]
             for group_id, group in get_command_groups().items():
@@ -87,7 +84,7 @@ def setup():
             description = f"**{group.brief}** (`{group.canonical_name}`): {group.description}\n"
             for cmd_id in group.commands:
                 cmd = get_commands()[cmd_id]
-                description += f"\n- `{Config.prefix(context.platform)}{cmd.get_usage(strategize)}` - {cmd.brief}"
+                description += f"\n- `{config().cfg(context.platform).prefixes[0]}{cmd.get_usage(strategize)}` - {cmd.brief}"
 
             await context.reply("", [Embed(f"Help: {group.brief}", description)])
             return
@@ -113,7 +110,7 @@ def setup():
             command = commands[possible_command]
             matched_alias, _ = strip_prefix(content, command.name, command.aliases)
             if matched_alias:
-                description = f"**Usage**: `{Config.prefix(context.platform)}{command.get_usage(strategize)}`\n\n{get_description(command)}\n\n**Examples**:"
+                description = f"**Usage**: `{config().cfg(context.platform).prefixes[0]}{command.get_usage(strategize)}`\n\n{get_description(command)}\n\n**Examples**:"
                 examples = []
                 for _ in range(10):
                     example = command.get_example_invocation()
@@ -124,9 +121,9 @@ def setup():
                         break
 
                 for example in sorted(examples, key=len):
-                    description += f"\n- `{Config.prefix(context.platform)}{example}`"
+                    description += f"\n- `{config().cfg(context.platform).prefixes[0]}{example}`"
 
-                await context.reply("", [Embed(f"Help: {Config.prefix(context.platform)}{topic}", description)])
+                await context.reply("", [Embed(f"Help: {config().cfg(context.platform).prefixes[0]}{topic}", description)])
                 return
 
         await context.reply(f"Error: `{topic}` is not a valid topic!")
@@ -135,61 +132,57 @@ def setup():
     @hook_command("explain")
     async def _(context: Context):
         await context.reply(
-            Template.from_string(DataReader.instance["explain.md"])
+            Template.from_string(app_context().data_reader["explain.md"])
             .compute(Template.get_default_metatext_variables(context), "")
         )
 
 
     @hook_command("stats")
     async def _(context: Context, stat: str | None):
-        cache_efficiency_denominator = CacheStatus.instance.hits + CacheStatus.instance.misses
-        cache_efficiency = (CacheStatus.instance.hits / cache_efficiency_denominator) if cache_efficiency_denominator != 0 else 1
-
-        db_stats: dict[str, Any] = await get_db().get_global_stats()
+        db_stats: dict[str, Any] = await database().get_global_stats()
         stats = {
             "guilds": ("Total community count", str(len(context.bot.guilds))),
             "uptime": ("Uptime", str(datetime.now() - start_time)),
             "commands": ("Total commands", str(len(get_commands()))),
             "proxy_uses": ("Total proxy uses", str(int(db_stats["proxy_uses"]))),
             "total_proxies": ("Total registered proxies", str(int(db_stats["total_proxies"]))),
-            "cache_efficiency": ("Cache efficiency", f"{cache_efficiency * 100:.2f}%"),
             "invocations": ("Session command invocations", str(get_session_command_usages())),
             "database_version": ("Database version", str(int(db_stats["version"]))),
-            "version": ("Code version", DataReader.instance["last_commit"]),
+            "version": ("Code version", app_context().data_reader["last_commit"]),
             "system": ("System", f"{platform.system()} {platform.release()} {platform.version()} {platform.machine()}"),
             "framework": ("Framework", f"custom (using fluxer.py + py-cord) w/ Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")
         }
         if stat:
             k, v = stats[stat]
             await context.reply("", embeds=[Embed(
-                f"{Config.name()} Statistics",
+                f"{config().name} Statistics",
                 f"**{k}** (`{stat}`): {v}"
             )])
         else:
             await context.reply("", embeds=[Embed(
-                f"{Config.name()} Statistics",
+                f"{config().name} Statistics",
                 "\n".join(f"**{k}** (`{stat}`): {v}" for stat, (k, v) in stats.items())
             )])
 
 
-    if Config.instance.website:
+    if site := config().website:
         @hook_command("dashboard")
         async def _(context: Context):
-            await context.reply(f"The link to the dashboard can be accessed [here]({Config.instance.website.dashboard}).")
+            await context.reply(f"The link to the dashboard can be accessed [here]({site.dashboard}).")
 
         @hook_command("website")
         async def _(context: Context):
-            await context.reply(f"Come visit the website for {Config.instance.name} [here]({Config.instance.website.home}).")
+            await context.reply(f"Come visit the website for {config().name} [here]({site.home}).")
 
         @hook_command("legal")
         async def _(context: Context):
-            await context.reply(f"Please view our Terms of Service [here]({Config.instance.website.terms}), and our Privacy Policy [here]({Config.instance.website.privacy}).")
+            await context.reply(f"Please view our Terms of Service [here]({site.terms}), and our Privacy Policy [here]({site.privacy}).")
 
         @hook_command("contact")
         async def _(context: Context):
-            await context.reply(f"Contact us [here]({Config.instance.website.contact})!")
+            await context.reply(f"Contact us [here]({site.contact})!")
 
-    if Config.instance.donation:
+    if config().donation:
         @hook_command("donate")
         async def _(context: Context):
-            await context.reply(f"Donate to this project [here]({Config.instance.donation})!")
+            await context.reply(f"Donate to this project [here]({config().donation})!")

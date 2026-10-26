@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, HttpUrl
 
 from ..backend import models as source_models
 from ..backend.database.user import UserID
@@ -154,3 +154,11 @@ class UserData(BaseModel):
     tags: list[ProxyTag]
     relationships: list[Relationship]
     user_id: int
+
+
+class UploadURLRequest(BaseModel):
+    file_extension: str
+
+class UploadURLResponse(BaseModel):
+    upload_url: HttpUrl
+    cdn_url: HttpUrl

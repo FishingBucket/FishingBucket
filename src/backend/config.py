@@ -1,4 +1,3 @@
-import datetime
 import json
 
 from pydantic import BaseModel, FilePath, HttpUrl, DirectoryPath, Field
@@ -15,6 +14,7 @@ class ApiServerPlatformConfig(BaseModel):
 class RateLimits(BaseModel):
     get_info: str = RateLimit
     edit: str = RateLimit
+    s3_upload: str = RateLimit
 
 class ApiServer(BaseModel):
     enabled: bool
@@ -51,7 +51,18 @@ class PlatformConfig(BaseModel):
     prefixes: list[str]
 
 
-class Config_(BaseModel):
+class S3Config(BaseModel):
+    endpoint: HttpUrl
+    key_id: str
+    bucket_name: str
+    access_key: str
+
+class CDNConfig(BaseModel):
+    s3: S3Config
+    url: HttpUrl
+
+
+class Config(BaseModel):
     fluxer: PlatformConfig
     discord: PlatformConfig | None = None
 
@@ -66,6 +77,7 @@ class Config_(BaseModel):
     donation: HttpUrl | None = None
     api_server: ApiServer | None = None
     website: WebsiteConfig | None = None
+    cdn: CDNConfig | None = None
 
     def cfg(self, item: Platform) -> PlatformConfig | None:
         if item is Platform.Fluxer:
@@ -75,28 +87,7 @@ class Config_(BaseModel):
         return None
 
 
-class Config:
-    instance: Config_
-    init_time: datetime.datetime
-
-    def __init__(self, filename: str = "config.json"):
-        with open(filename) as f:
-            conf = json.loads(f.read())
-            Config.instance = Config_(**conf)
-        Config.init_time = datetime.datetime.now()
-
-    @classmethod
-    def cfg(cls, item: Platform) -> PlatformConfig | None:
-        if item is Platform.Fluxer:
-            return cls.instance.fluxer
-        elif item is Platform.Discord:
-            return cls.instance.discord
-        return None
-
-    @classmethod
-    def prefix(cls, platform: Platform) -> str:
-        return cls.cfg(platform).prefixes[0]
-
-    @classmethod
-    def name(cls) -> str:
-        return cls.instance.name
+def config_from_file(filename: str = "config.json") -> Config:
+    with open(filename) as f:
+        conf = json.loads(f.read())
+        return Config(**conf)

@@ -1,6 +1,6 @@
 from ..generic import make_command_group, make_command, Argument
 from ..generic.strategies import OneOf, List, Literal, Optional, OptionList
-from ...backend.config import Config
+from ...context import config
 from ...service import Channel, Role, User
 
 
@@ -8,7 +8,7 @@ def setup():
     guild_group = make_command_group(
         "guild_commands",
         "Community Commands",
-        f"Commands that changes how {Config.name()} functions in your community."
+        f"Commands that changes how {config().name} functions in your community."
     )
 
     guild_group.append(

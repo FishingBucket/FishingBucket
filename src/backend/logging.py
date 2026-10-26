@@ -4,10 +4,11 @@ import traceback
 from pathlib import Path
 from typing import Callable, Any
 
-from .config import Config
+from ..context import config, context
+
 
 def get_log_file(postfix: str = "") -> Path:
-    return Config.instance.log_directory / f"{Config.init_time.strftime(Config.instance.log_time_format)}{postfix}.log"
+    return config().log_directory / f"{context().startup_time.strftime(config().log_time_format)}{postfix}.log"
 
 def start_log(name: str, postfix: str = "") -> tuple[Callable[..., None], Callable[[BaseException], None]]:
     logger = logging.getLogger(name + postfix)
@@ -17,12 +18,12 @@ def start_log(name: str, postfix: str = "") -> tuple[Callable[..., None], Callab
     logger.addHandler(handler)
 
     def info(*data: Any):
-        msg = f"{datetime.datetime.now() - Config.init_time} [{name}{postfix}] " + ' '.join(str(d) for d in data)
+        msg = f"{datetime.datetime.now() - context().startup_time} [{name}{postfix}] " + ' '.join(str(d) for d in data)
         print(msg)
         logger.info(msg)
 
     def err(e: BaseException):
-        msg = f"{datetime.datetime.now() - Config.init_time} [{name}{postfix}] " + "".join(traceback.format_exception(type(e), e, e.__traceback__))
+        msg = f"{datetime.datetime.now() - context().startup_time} [{name}{postfix}] " + "".join(traceback.format_exception(type(e), e, e.__traceback__))
         print(msg)
         logger.error(msg)
 

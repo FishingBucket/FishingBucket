@@ -4,10 +4,10 @@ from typing import Literal, Sequence
 
 from .generic import hook_command
 from .utils import require_permissions
-from ..backend.database.database import get_db
 from ..backend.database.permission import GuildPermissions, AllowDenyPair, IDType, DISPLAY_GUILD_PERMISSION, \
     GUILD_PERMISSION_DISPLAY
 from ..backend.models import GuildDat
+from ..context import database
 from ..service import Context, Channel, Role, User, Embed
 
 
@@ -34,7 +34,7 @@ def setup():
         elif allow is False:
             pair = AllowDenyPair(GuildPermissions(0), perms)
 
-        overrides = await get_db().permissions.get_all_guild_overrides(guild)
+        overrides = await database().permissions.get_all_guild_overrides(guild)
 
         normalized_targets: Sequence[Channel | Role | User | Literal["community"]]
         if targets == "community":
@@ -44,7 +44,7 @@ def setup():
 
         items: list[str] = []
 
-        async with get_db().transaction():
+        async with database().transaction():
             for target in normalized_targets:
                 target_id = 0
                 target_id_type = IDType.BASE
@@ -82,7 +82,7 @@ def setup():
                     for t in previous.denies
                 ) if previous.denies else "nothing"}")
 
-                await get_db().permissions.override(
+                await database().permissions.override(
                     target_id,
                     target_id_type,
                     guild,
@@ -103,8 +103,8 @@ def setup():
 
         guild = GuildDat(channel.guild_id, context.platform)
 
-        async with get_db().transaction():
-            await get_db().permissions.remove_all_overrides(guild)
+        async with database().transaction():
+            await database().permissions.remove_all_overrides(guild)
 
         await context.reply("", [Embed(
             "Community Settings Changed!",
@@ -118,7 +118,7 @@ def setup():
 
         guild = GuildDat(channel.guild_id, context.platform)
 
-        preferences = await get_db().permissions.get_all_guild_overrides(guild)
+        preferences = await database().permissions.get_all_guild_overrides(guild)
 
         final_text: list[str] = []
         for id_type in (
@@ -165,10 +165,10 @@ def setup():
         channel = await context.get_this_channel()
 
         guild = GuildDat(channel.guild_id, context.platform)
-        prefs = await get_db().guilds.get_guild_preferences(guild)
+        prefs = await database().guilds.get_guild_preferences(guild)
 
-        async with get_db().transaction():
-            await get_db().guilds.set_guild_preferences(
+        async with database().transaction():
+            await database().guilds.set_guild_preferences(
                 replace(prefs, logging_channel=log_channel.id if log_channel else 0)
             )
 
@@ -189,7 +189,7 @@ def setup():
         channel = await context.get_this_channel()
 
         guild = GuildDat(channel.guild_id, context.platform)
-        prefs = await get_db().guilds.get_guild_preferences(guild)
+        prefs = await database().guilds.get_guild_preferences(guild)
 
         log_channel = prefs.logging_channel
 

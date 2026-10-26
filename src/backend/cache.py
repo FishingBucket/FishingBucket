@@ -6,18 +6,6 @@ from collections import defaultdict
 
 import celpy.celtypes
 
-
-class CacheStatus:
-    instance: CacheStatus
-
-    def __init__(self):
-        CacheStatus.instance = self
-
-        self.hits = 0
-        self.misses = 0
-        self.miss_cause = defaultdict(int)
-
-
 class TTLCache[T, U]:
     def __init__(self, max_size: int = 1024, ttl: int = 60):
         self.max_size = max_size
@@ -29,7 +17,6 @@ class TTLCache[T, U]:
         if not time: time = monotonic()
         keys = [k for k, (_, t) in self._cache.items() if t + self.ttl <= time]
         for key in keys:
-            CacheStatus.instance.miss_cause["expire"] += 1
             self._cache.pop(key)
 
     def get(self, key: T, default: U = None) -> U | None:
@@ -41,24 +28,20 @@ class TTLCache[T, U]:
 
     def set(self, key: T, value: U):
         if len(self._cache) >= self.max_size and self.make_hashable(key) not in self._cache:
-            CacheStatus.instance.miss_cause["max_size"] += 1
             self._cache.pop(next(iter(self._cache)))
 
         self._cache[self.make_hashable(key)] = value, monotonic()
 
     def invalidate(self, key: T):
         if key in self._cache:
-            CacheStatus.instance.miss_cause["manual"] += 1
             del self._cache[key]
 
     def clear(self, predicate: Callable[[T, U], bool] | None = None):
         if predicate is None:
-            CacheStatus.instance.miss_cause["full_clear"] += 1
             self._cache.clear()
             return
         keys = [k for k, (v, _) in self._cache.items() if predicate(k, v)]
         for key in keys:
-            CacheStatus.instance.miss_cause["clear"] += 1
             self._cache.pop(key)
 
     def make_hashable(self, stuff):
@@ -91,10 +74,7 @@ class TTLCache[T, U]:
                         key_parts.append(bound.arguments[argn])
 
                 if value := self.get(key_parts):
-                    CacheStatus.instance.hits += 1
                     return value
-                CacheStatus.instance.miss_cause["not_found"] += 1
-                CacheStatus.instance.misses += 1
                 value = function(*cargs, **kwargs)
                 self.set(key_parts, value)
                 return value
@@ -124,10 +104,7 @@ class TTLCache[T, U]:
                 cache_key = self.make_hashable(key_parts)
 
                 if value := self.get(cache_key):
-                    CacheStatus.instance.hits += 1
                     return value
-                CacheStatus.instance.miss_cause["not_found"] += 1
-                CacheStatus.instance.misses += 1
                 value = await function(*cargs, **kwargs)
                 self.set(cache_key, value)
                 return value

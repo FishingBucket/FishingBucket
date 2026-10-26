@@ -7,12 +7,12 @@ import expr_dice_roller as dice
 import json5
 from pydantic import BaseModel, field_validator, ValidationError
 
-from ..backend.database.database import get_db
 from ..backend.database.guild import GuildPreference
 from ..backend.database.permission import GuildPermissions
 from ..backend.database.user import UserID
 from ..backend.dice_environments import global_functions
 from ..backend.utils import roll_dice
+from ..context import database
 from ..service.common import RawEmbed, Embed, Message
 
 
@@ -109,7 +109,7 @@ def normalize_embed(embed: SingularEmbed) -> RawEmbed:
 async def modify_message(user: UserID, guild_preferences: GuildPreference, permissions: GuildPermissions, message: str) -> tuple[str, list[Embed]]:
     embed_list: list[Embed] = []
     evaluator = dice.Evaluator()
-    user_preferences = await get_db().user_settings.get_user_preference(user)
+    user_preferences = await database().user_settings.get_user_preference(user)
     fns = user_preferences.dice_functions
     if fns:
         env = dice.Environment.deserialize(evaluator, fns)
@@ -176,7 +176,7 @@ async def modify_message(user: UserID, guild_preferences: GuildPreference, permi
     result = BLOCK_CONTENT_RE.sub(construct, message), embed_list
     serialized = env.serialize()
     if serialized != fns:
-        await get_db().user_settings.set_user_preference(user, replace(user_preferences, dice_functions=serialized))
+        await database().user_settings.set_user_preference(user, replace(user_preferences, dice_functions=serialized))
     return result
 
 

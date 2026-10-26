@@ -4,11 +4,11 @@ import time
 import discord
 import fluxer
 
-from ..backend.database.database import get_db
 from ..backend.database.user import SSOID
 from ..backend.logging import start_log
 from ..backend.models import Platform, MessageDat, GuildDat
 from ..backend.utils import quote, DelimitedString
+from ..context import database, config
 from ..interaction import Interactions
 from ..proxying.editing import try_reverse_engineer
 from ..proxying.event import on_user_message
@@ -46,8 +46,8 @@ async def handle_message(context: Context):
     if key in editing_proxy_messages and editing_proxy_messages[key][0] == context.message.channel_id:
         msg = editing_proxy_messages[key][1]
         editing_proxy_messages.pop(key)
-        lnk = await get_db().guilds.get_message_link(MessageDat(msg.id, msg.channel_id, context.platform))
-        uid = await get_db().users.get_user_id(SSOID(context.author.id), context.platform)
+        lnk = await database().guilds.get_message_link(MessageDat(msg.id, msg.channel_id, context.platform))
+        uid = await database().users.get_user_id(SSOID(context.author.id), context.platform)
         if (
                 lnk and
                 uid and
@@ -56,7 +56,7 @@ async def handle_message(context: Context):
                 (member := await guild.get_member(context.author.id))
         ):
             roles = await member.roles()
-            perms = await get_db().permissions.compute_effective_permissions(
+            perms = await database().permissions.compute_effective_permissions(
                 GuildDat(
                     channel.guild_id,
                     context.platform
@@ -71,7 +71,7 @@ async def handle_message(context: Context):
             return
 
     try:
-        maybe = await get_command_awaitable(context, Config.cfg(context.platform).prefixes)
+        maybe = await get_command_awaitable(context, config().cfg(context.platform).prefixes)
         if maybe:
             (cmd_name, args), cmd = maybe
             start_time = time.time()
@@ -81,7 +81,7 @@ async def handle_message(context: Context):
             cmd_id += 1
             return
     except ParseError as e:
-        await context.reply(f"Error parsing command: {e.message}.\nUse `{Config.prefix(context.platform)}help` to see command shape.")
+        await context.reply(f"Error parsing command: {e.message}.\nUse `{config().cfg(context.platform).prefixes[0]}help` to see command shape.")
         return
     except EarlyExitException:
         return
@@ -104,13 +104,13 @@ async def handle_reaction(context: ReactionActionEvent, server: Server):
     if await Interactions.instance.interact(ctx, user.id, (context, )):
         return
 
-    uid = await get_db().users.get_user_id(SSOID(user.id), ctx.platform)
+    uid = await database().users.get_user_id(SSOID(user.id), ctx.platform)
     message = MessageDat(ctx.id, ctx.message.channel_id, ctx.platform)
 
     if context.emoji in (EMOJI_WHO, EMOJI_DELETE, EMOJI_EDIT, EMOJI_PING, EMOJI_PING2):
-        lnk = await get_db().guilds.get_message_link(message)
+        lnk = await database().guilds.get_message_link(message)
         if lnk:
-            proxy = await get_db().proxies.get(lnk.proxy_id)
+            proxy = await database().proxies.get(lnk.proxy_id)
             if not proxy: return
             await ctx.message.remove_reaction(context.emoji, user.id)
 
@@ -130,7 +130,7 @@ async def handle_reaction(context: ReactionActionEvent, server: Server):
                 await dm.send("", [e])
 
             if context.emoji == EMOJI_DELETE and proxy.owner == uid:
-                await get_db().guilds.delete_link_message(message)
+                await database().guilds.delete_link_message(message)
                 await ctx.message.delete()
                 return
 
@@ -189,9 +189,9 @@ def setup_fluxer(server: FluxerServer):
     async def on_message_delete(data: dict):
         channel_id, message_id = int(data["channel_id"]), int(data["id"])
         message = MessageDat(message_id, channel_id, Platform.Fluxer)
-        lnk = await get_db().guilds.get_message_link(message)
+        lnk = await database().guilds.get_message_link(message)
         if lnk:
-            await get_db().guilds.delete_link_message(message)
+            await database().guilds.delete_link_message(message)
 
 
 def setup_discord(server: DiscordServer):
@@ -214,6 +214,6 @@ def setup_discord(server: DiscordServer):
     @server.event
     async def on_message_delete(message: discord.Message):
         message = MessageDat(message.id, message.channel.id, Platform.Discord)
-        lnk = await get_db().guilds.get_message_link(message)
+        lnk = await database().guilds.get_message_link(message)
         if lnk:
-            await get_db().guilds.delete_link_message(message)
+            await database().guilds.delete_link_message(message)

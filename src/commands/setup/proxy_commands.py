@@ -5,6 +5,7 @@ from datetime import timedelta
 from ..generic import make_command_group, make_command, Argument
 from ..generic.strategies import Optional, OneOf, Literal, OptionList
 from ..specific import TemplateStrategy, UnknownPageNumber, ProxyStrategy
+from ...context import config
 
 
 def random_trigger():
@@ -288,3 +289,21 @@ def setup():
             ]
         )
     )
+
+    if config().cdn:
+        proxy_commands.append(
+            make_command(
+                "upload cdn",
+                "Uploads image data to CDN.",
+                """
+                Uploads image data to CDN.
+                Upload proxy information like avatar and forms to the CDN.
+                """,
+                [
+                    Argument(
+                        "proxy",
+                        ProxyStrategy()
+                    )
+                ]
+            )
+        )

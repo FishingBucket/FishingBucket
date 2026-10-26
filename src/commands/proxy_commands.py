@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import datetime, timedelta
 from typing import Literal
 
@@ -6,12 +7,13 @@ from textdistance import damerau_levenshtein as edit_distance
 from .generic import hook_command, EarlyExitException
 from .specific import get_uid, get_or_make_uid
 from .utils import example_trigger_text, paged_proxy_list, get_proxy_text
+from ..backend.cdn import cdn_reupload_file
 from ..backend.database.guild import MessageLink
 from ..backend.database.user_setting import AutoproxyType, AutoproxyPreference
 from ..backend.models import ID, MessageDat, GuildDat, FullProxy
 from ..backend.template_utils import Template
 from ..backend.utils import normalize_emojis, quote
-from ..context import database
+from ..context import database, config
 from ..proxying.executor import reproxy, edit_proxy_message
 from ..service import Context, Embed, Message
 
@@ -42,7 +44,7 @@ def setup():
         if not context.message.attachments:
             avatar_url = FullProxy.random_avatar()
         else:
-            avatar_url = context.message.attachments[0].url
+            avatar_url = await cdn_reupload_file(context.message.attachments[0].filename, context.message.attachments[0].url)
 
         async with database().transaction():
             new_proxy_id = await database().proxies.put(
@@ -326,3 +328,36 @@ def setup():
             await context.message.delete()
             await edit_proxy_message(ref.context, message, message_link, perms, uid)
 
+
+    @hook_command("upload cdn")
+    async def _(context: Context, proxy: FullProxy):
+        avatar_url = proxy.avatar_url
+        forms = proxy.forms
+
+        if avatar_url and not avatar_url.startswith(str(config().cdn.url)) and not avatar_url.startswith("https://fluxerstatic.com"):
+            avatar_url = await cdn_reupload_file(avatar_url.split("?")[0], avatar_url)
+
+        for key, value in forms.items():
+            if value and not value.startswith(str(config().cdn.url)) and not value.startswith("https://fluxerstatic.com"):
+                forms[key] = await cdn_reupload_file(value.split("?")[0], value)
+
+        proxy = replace(proxy, avatar_url=avatar_url, forms=forms)
+
+        async with database().transaction():
+            await database().proxies.update(proxy)
+
+        channel = await context.get_this_channel()
+        uid = await get_uid(context)
+
+        detailed = channel.dm
+
+        await context.reply("CDN upload finished!", [Embed(
+            proxy.name,
+            get_proxy_text(
+                proxy,
+                await database().tags.fetch_bulk(await database().relationships.get_relationships(proxy.id)),
+                await database().user_settings.get_user_preference(uid),
+                detailed
+            ),
+            thumbnail_url=proxy.effective_avatar
+        )])

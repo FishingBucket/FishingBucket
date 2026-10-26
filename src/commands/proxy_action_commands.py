@@ -4,6 +4,7 @@ from typing import Literal, Tuple
 from .generic import hook_command
 from .specific import get_uid
 from .utils import example_trigger_text
+from ..backend.cdn import cdn_reupload_file
 from ..backend.models import FullProxy, ProxyTag
 from ..backend.template_utils import Template
 from ..backend.utils import normalize_emojis, quote
@@ -18,7 +19,7 @@ def setup():
         if not context.message.attachments:
             avatar_url = url or FullProxy.random_avatar()
         else:
-            avatar_url = context.message.attachments[0].url
+            avatar_url = await cdn_reupload_file(context.message.attachments[0].filename, context.message.attachments[0].url)
 
         async with database().transaction():
             await database().proxies.update(replace(proxy, avatar_url=avatar_url))
@@ -178,7 +179,7 @@ def setup():
                     if not context.message.attachments:
                         avatar_url = form[1] or FullProxy.random_avatar()
                     else:
-                        avatar_url = context.message.attachments[0].url
+                        avatar_url = await cdn_reupload_file(context.message.attachments[0].filename, context.message.attachments[0].url)
 
         forms = proxy.forms
         curr_form = proxy.current_form

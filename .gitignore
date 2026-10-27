@@ -14,6 +14,15 @@ build/
 .DS_Store
 *.sw*
 build/
+*/__pycache__
+*.egg-info
+!config.schema.json
+!Docker/
+!Docker/**
+*eggs*/
+dist/
+wheels/
+
 *eggs*/
 dist/
 wheels/

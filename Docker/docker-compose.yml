@@ -9,8 +9,8 @@ services:
     user: "1000:1000"
     restart: unless-stopped
 
-    ports:
-      - "${api_port}:${api_port}"
+    #ports:
+    #  - "${api_port}:${api_port}"
 
     environment:
       TZ: "${TZ:-America/Chicago}"

@@ -16,7 +16,8 @@ from ...service import Context
 
 
 async def get_or_make_uid(context: Context) -> UserID:
-    return await database().users.get_or_create_user_id(SSOID(context.author.id), context.platform)
+    async with database().transaction():
+        return await database().users.get_or_create_user_id(SSOID(context.author.id), context.platform)
 
 
 async def get_uid_nullable(context: Context) -> UserID | None:

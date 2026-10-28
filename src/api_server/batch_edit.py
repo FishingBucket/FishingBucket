@@ -89,39 +89,40 @@ async def handle_batch_edit(batch_edit: BatchEdit, owner: UserID, database: Data
 
     # DATABASE
 
-    for delete_proxy_edit in filter_edit_type(batch_edit.edits, DeleteProxyEdit):
-        ignored_ids.append(ID(delete_proxy_edit.proxy_id, "PROXY"))
-        await database.proxies.delete(ID_(delete_proxy_edit.proxy_id))
+    async with database.transaction():
+        for delete_proxy_edit in filter_edit_type(batch_edit.edits, DeleteProxyEdit):
+            ignored_ids.append(ID(delete_proxy_edit.proxy_id, "PROXY"))
+            await database.proxies.delete(ID_(delete_proxy_edit.proxy_id))
 
-    for delete_proxy_tag_edit in filter_edit_type(batch_edit.edits, DeleteProxyTagEdit):
-        ignored_ids.append(ID(delete_proxy_tag_edit.tag_id, "PROXY_TAG"))
-        await database.tags.delete(ID_(delete_proxy_tag_edit.tag_id))
+        for delete_proxy_tag_edit in filter_edit_type(batch_edit.edits, DeleteProxyTagEdit):
+            ignored_ids.append(ID(delete_proxy_tag_edit.tag_id, "PROXY_TAG"))
+            await database.tags.delete(ID_(delete_proxy_tag_edit.tag_id))
 
-    for new_proxy_tag_edit in filter_edit_type(batch_edit.edits, NewProxyTagEdit):
-        assert isinstance(new_proxy_tag_edit.tag.id, EphemeralID)
-        transformed_t = new_proxy_tag_edit.tag.to_source(ID_(0), owner)
-        new_id = await database.tags.put(transformed_t)
-        id_map[ID(new_proxy_tag_edit.tag.id.index, "PROXY_TAG")] = new_id
+        for new_proxy_tag_edit in filter_edit_type(batch_edit.edits, NewProxyTagEdit):
+            assert isinstance(new_proxy_tag_edit.tag.id, EphemeralID)
+            transformed_t = new_proxy_tag_edit.tag.to_source(ID_(0), owner)
+            new_id = await database.tags.put(transformed_t)
+            id_map[ID(new_proxy_tag_edit.tag.id.index, "PROXY_TAG")] = new_id
 
-    for new_proxy_edit in filter_edit_type(batch_edit.edits, NewProxyEdit):
-        assert isinstance(new_proxy_edit.proxy.id, EphemeralID)
-        transformed_p = new_proxy_edit.proxy.to_source(ID_(0), owner)
-        new_id = await database.proxies.put(transformed_p)
-        id_map[ID(new_proxy_edit.proxy.id.index, "PROXY")] = new_id
+        for new_proxy_edit in filter_edit_type(batch_edit.edits, NewProxyEdit):
+            assert isinstance(new_proxy_edit.proxy.id, EphemeralID)
+            transformed_p = new_proxy_edit.proxy.to_source(ID_(0), owner)
+            new_id = await database.proxies.put(transformed_p)
+            id_map[ID(new_proxy_edit.proxy.id.index, "PROXY")] = new_id
 
-    for edit_proxy_tag_edit in filter_edit_type(batch_edit.edits, EditProxyTagEdit):
-        if isinstance(edit_proxy_tag_edit.value.id, int) and ID(edit_proxy_tag_edit.value.id, "PROXY_TAG") in ignored_ids:
-            continue
-        tag_id = get_id(edit_proxy_tag_edit.value.id, "PROXY_TAG")
-        await database.tags.update(edit_proxy_tag_edit.value.to_source(tag_id, owner))
+        for edit_proxy_tag_edit in filter_edit_type(batch_edit.edits, EditProxyTagEdit):
+            if isinstance(edit_proxy_tag_edit.value.id, int) and ID(edit_proxy_tag_edit.value.id, "PROXY_TAG") in ignored_ids:
+                continue
+            tag_id = get_id(edit_proxy_tag_edit.value.id, "PROXY_TAG")
+            await database.tags.update(edit_proxy_tag_edit.value.to_source(tag_id, owner))
 
-    for edit_proxy_edit in filter_edit_type(batch_edit.edits, EditProxyEdit):
-        if isinstance(edit_proxy_edit.value.id, int) and ID(edit_proxy_edit.value.id, "PROXY") in ignored_ids:
-            continue
-        proxy_id = get_id(edit_proxy_edit.value.id, "PROXY")
-        await database.proxies.update(edit_proxy_edit.value.to_source(proxy_id, owner))
+        for edit_proxy_edit in filter_edit_type(batch_edit.edits, EditProxyEdit):
+            if isinstance(edit_proxy_edit.value.id, int) and ID(edit_proxy_edit.value.id, "PROXY") in ignored_ids:
+                continue
+            proxy_id = get_id(edit_proxy_edit.value.id, "PROXY")
+            await database.proxies.update(edit_proxy_edit.value.to_source(proxy_id, owner))
 
-    for set_relationship_edit in filter_edit_type(batch_edit.edits, SetRelationshipEdit):
-        proxy_id = get_id(set_relationship_edit.value.proxy, "PROXY")
-        tag_ids = [get_id(tag, "PROXY_TAG") for tag in set_relationship_edit.value.tags]
-        await database.relationships.set_relationship(proxy_id, tag_ids)
+        for set_relationship_edit in filter_edit_type(batch_edit.edits, SetRelationshipEdit):
+            proxy_id = get_id(set_relationship_edit.value.proxy, "PROXY")
+            tag_ids = [get_id(tag, "PROXY_TAG") for tag in set_relationship_edit.value.tags]
+            await database.relationships.set_relationship(proxy_id, tag_ids)

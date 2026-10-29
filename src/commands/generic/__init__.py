@@ -3,8 +3,8 @@ from typing import Callable, Coroutine, Any, Concatenate
 
 from .data import Command, Argument, CharacterStream, ParsingArgument, ParseError, CommandGroup
 from .strategies import strategize
-from ...backend.config import Config
 from ...backend.models import Platform
+from ...context import config
 from ...service import Context
 
 
@@ -85,7 +85,7 @@ def make_command_group(
 
 
 def get_command_invocation(command: str, platform: Platform) -> str:
-    return f"{Config.prefix(platform)}{command_registry[command].get_usage(strategize)}"
+    return f"{config().cfg(platform).prefixes[0]}{command_registry[command].get_usage(strategize)}"
 
 
 def get_commands() -> dict[str, Command]:

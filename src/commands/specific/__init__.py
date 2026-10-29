@@ -6,12 +6,11 @@ from ..generic import CharacterStream, ParsingArgument, EarlyExitException, get_
 from ..generic.data import Strategy, SyntaxParseError, ParseError
 from ..generic.misc import escape_string
 from ..generic.strategies import OneOf, HexadecimalStrategy, StringStrategy, IntegerStrategy
-from ...backend.config import Config
 from ...backend.database.user import UserID, SSOID
-from ...backend.models import Proxy, ProxyTag, FullProxy, ID
+from ...backend.models import ProxyTag, FullProxy, ID
 from ...backend.template_utils import Template, ExprPart
 from ...backend.utils import normalize_emojis
-from ...context import database
+from ...context import database, config
 from ...service import Context
 
 
@@ -148,7 +147,7 @@ class TemplateStrategy(Strategy):
         string = await StringStrategy().parse(stream, argument, context)
         if "text" in string and not ("{" in string and "}" in string):
             string = string.replace("text", "{}", 1)
-            await context.reply(f"Note: {Config.name()} uses `{'{}'}` for placeholders instead of `text`. Your input has been auto-coerced to use `{'{}'}`.")
+            await context.reply(f"Note: {config().name} uses `{'{}'}` for placeholders instead of `text`. Your input has been auto-coerced to use `{'{}'}`.")
 
         template = Template.from_string(string)
         if template.errors:

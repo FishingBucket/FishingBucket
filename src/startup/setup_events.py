@@ -17,7 +17,6 @@ from ..service import Context, Server, FluxerServer, DiscordServer, FluxerContex
     ReactionActionEvent, Embed, Message
 from ..service.fluxer import Message as FluxerMessage, ReactionActionEvent as FluxerReactionActionEvent, Bot as FluxerBot
 from ..service.discord import Message as DiscordMessage, ReactionActionEvent as DiscordReactionActionEvent, Bot as DiscordBot
-from ..backend.config import Config
 from ..commands.generic import get_command_awaitable, ParseError, EarlyExitException
 
 print, error = start_log("bot")

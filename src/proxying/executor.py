@@ -3,7 +3,6 @@ from typing import Literal
 
 from .editing import modify_message
 from ..backend.cache import TTLCache
-from ..backend.config import Config
 from ..backend.database.guild import MessageLink
 from ..backend.database.permission import GuildPermissions
 from ..backend.database.user import UserID

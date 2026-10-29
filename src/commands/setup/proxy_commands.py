@@ -298,11 +298,15 @@ def setup():
                 """
                 Uploads image data to CDN.
                 Upload proxy information like avatar and forms to the CDN.
+                If the proxy is set to `all`, then the bot will initiate bulk-uploading to CDN.
                 """,
                 [
                     Argument(
                         "proxy",
-                        ProxyStrategy()
+                        OneOf(
+                            Literal("all"),
+                            ProxyStrategy()
+                        )
                     )
                 ]
             )

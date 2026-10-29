@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import replace
 from datetime import datetime, timedelta
 from typing import Literal
@@ -14,8 +15,9 @@ from ..backend.models import ID, MessageDat, GuildDat, FullProxy
 from ..backend.template_utils import Template
 from ..backend.utils import normalize_emojis, quote
 from ..context import database, config
+from ..interaction import Interactions, Interaction
 from ..proxying.executor import reproxy, edit_proxy_message
-from ..service import Context, Embed, Message
+from ..service import Context, Embed, Message, ReactionActionEvent, Channel
 
 
 async def require_reply(context: Context) -> tuple[MessageLink, Message]:
@@ -330,8 +332,31 @@ def setup():
 
 
     if config().cdn:
-        @hook_command("upload cdn")
-        async def _(context: Context, proxy: FullProxy):
+        async def bulk_upload(proxies: list[FullProxy], channel: Channel):
+            processed: int = 0
+
+            def make_embed() -> Embed:
+                return Embed(
+                    "Progress Report",
+                    f"Processed {processed}/{len(proxies)} proxies. Queue: " + ", ".join(
+                        proxy.name for proxy in proxies[processed : processed + 10]
+                    ),
+                )
+
+            message = await channel.send("", [make_embed()])
+
+            async with database().transaction():
+                for proxy in proxies:
+                    await upload_avatar(proxy)
+                    processed += 1
+                    await asyncio.sleep(0.2)
+                    if processed % 10 == 0:
+                        await message.message.edit("", [make_embed()])
+
+            await message.message.edit("All proxy avatars and forms has been uploaded to the CDN!", [make_embed()])
+
+
+        async def upload_avatar(proxy: FullProxy) -> FullProxy:
             avatar_url = proxy.avatar_url
             forms = proxy.forms
 
@@ -344,21 +369,53 @@ def setup():
 
             proxy = replace(proxy, avatar_url=avatar_url, forms=forms)
 
-            async with database().transaction():
-                await database().proxies.update(proxy)
+            await database().proxies.update(proxy)
 
-            channel = await context.get_this_channel()
-            uid = await get_uid(context)
+            return proxy
 
-            detailed = channel.dm
+        @hook_command("upload cdn")
+        async def _(context: Context, proxy: Literal["all"] | FullProxy):
+            if proxy == "all":
+                uid = await get_uid(context)
+                all_proxies = await database().proxies.full_from_user(uid)
+                m = await context.reply(f"> [!WARNING]\n> This action will affect {len(all_proxies)} proxies!\n> React with :white_check_mark: to continue. This message expires in 20 seconds.")
+                await m.message.add_reaction("✅")
 
-            await context.reply("CDN upload finished!", [Embed(
-                proxy.name,
-                get_proxy_text(
-                    proxy,
-                    await database().tags.fetch_bulk(await database().relationships.get_relationships(proxy.id)),
-                    await database().user_settings.get_user_preference(uid),
-                    detailed
-                ),
-                thumbnail_url=proxy.effective_avatar
-            )])
+                async def cb(event: ReactionActionEvent) -> bool:
+                    if event.emoji == "✅":
+                        dm = await context.message.author.get_dm()
+                        if dm is None:
+                            await m.reply("Cannot send a DM! Upload aborted!")
+                            return True
+
+                        task = asyncio.create_task(bulk_upload(all_proxies, dm))
+                        await m.reply("I've DMed a progress report into your DMs!")
+                        await task
+                        return True
+                    return False
+
+                Interactions.instance.add_interaction(m, Interaction(context.author.id, cb, 10))
+
+                if await Interactions.instance.wait_claim_after(10, m.id, context.platform):
+                    await m.message.edit("Bulk CDN upload confirmation expired!")
+                    await m.message.remove_reaction("✅")
+
+            else:
+                async with database().transaction():
+                    proxy = await upload_avatar(proxy)
+
+                channel = await context.get_this_channel()
+                uid = await get_uid(context)
+
+                detailed = channel.dm
+
+                await context.reply("CDN upload finished!", [Embed(
+                    proxy.name,
+                    get_proxy_text(
+                        proxy,
+                        await database().tags.fetch_bulk(await database().relationships.get_relationships(proxy.id)),
+                        await database().user_settings.get_user_preference(uid),
+                        detailed
+                    ),
+                    thumbnail_url=proxy.effective_avatar
+                )])

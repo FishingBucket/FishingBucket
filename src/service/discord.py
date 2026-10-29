@@ -6,6 +6,7 @@ from types import EllipsisType
 from typing import Literal, Unpack, cast, Sequence
 
 import discord
+from discord.abc import MISSING
 
 from . import common as c
 from .common import Embed, File, RawEmbed, AllowedMention, SendMessageKwargs, MentionPreference, SendMessageArgs
@@ -428,7 +429,7 @@ class Webhook(c.Webhook[discord.Webhook, discord.Bot]):
             username=username,
             avatar_url=avatar_url,
             wait=True,
-            thread=thread_id and _Snowflake(thread_id), # type: ignore
+            thread=_Snowflake(thread_id) if thread_id else MISSING,
             **to_send_kwargs(collect_args_kwargs(args, kwargs))
         )
         return Message(message, self.bot).context

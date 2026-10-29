@@ -7,8 +7,8 @@ import re
 from pydantic import BaseModel
 
 from .cache import TTLCache
-from .config import Config
 from .logging import start_log
+from ..context import config
 
 if TYPE_CHECKING:
     from ..service import Context
@@ -269,9 +269,9 @@ class Template:
     @staticmethod
     def get_default_metatext_variables(context: Context) -> dict:
         return {
-            "config": Config.instance,
-            "prefix": Config.prefix(context.platform),
-            "name": Config.name(),
+            "config": config(),
+            "prefix": config().cfg(context.platform).prefixes[0],
+            "name": config().name,
             "context": {
                 "platform": context.platform.name
             }

@@ -116,16 +116,22 @@ def setup():
     async def _(context: Context):
         channel = await context.get_this_channel()
 
+        member = await context.get_member(context.author.id)
+        can_see_users = False
+        if channel and member:
+            permissions = await channel.permissions_for(member)
+            can_see_users = permissions.manage_guild
+
         guild = GuildDat(channel.guild_id, context.platform)
 
         preferences = await database().permissions.get_all_guild_overrides(guild)
 
         final_text: list[str] = []
-        for id_type in (
-            IDType.BASE,
-            IDType.CHANNEL,
-            IDType.ROLE
-        ):
+        show_ids = [IDType.BASE, IDType.CHANNEL, IDType.ROLE]
+        if can_see_users:
+            show_ids.append(IDType.USER)
+
+        for id_type in show_ids:
             if not preferences[id_type]: continue
 
             prefix = "Community"
@@ -134,6 +140,8 @@ def setup():
                 prefix = "Channels"
             elif id_type == IDType.ROLE:
                 prefix = "Roles"
+            elif id_type == IDType.USER:
+                prefix = "Users"
 
             texts: list[str] = []
             for id_, pair in preferences[id_type].items():
@@ -142,6 +150,8 @@ def setup():
                     id_display = f"<#{id_}>"
                 elif id_type == IDType.ROLE:
                     id_display = f"<@&{id_}>"
+                elif id_type == IDType.USER:
+                    id_display = f"<@{id_}>"
 
                 texts.append(f"{id_display}: allows {", ".join(
                     GUILD_PERMISSION_DISPLAY[t]

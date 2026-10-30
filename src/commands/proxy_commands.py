@@ -190,7 +190,7 @@ def setup():
         if expires == "never":
             expiration = None
         else:
-            expiration = expires.total_seconds()
+            expiration = expires.total_seconds() + datetime.now().timestamp()
 
         if mode == "global" or mode is None:
             guild = GuildDat(0, context.platform)

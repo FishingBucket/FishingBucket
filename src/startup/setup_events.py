@@ -130,7 +130,6 @@ async def handle_reaction(context: ReactionActionEvent, server: Server):
                 await dm.send("", [e])
 
             if context.emoji == EMOJI_DELETE and proxy.owner == uid:
-                await ctx.message.remove_reaction(context.emoji, user.id)
                 await database().guilds.delete_link_message(message)
                 await ctx.message.delete()
                 return

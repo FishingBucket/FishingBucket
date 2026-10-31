@@ -111,9 +111,9 @@ async def handle_reaction(context: ReactionActionEvent, server: Server):
         if lnk:
             proxy = await database().proxies.get(lnk.proxy_id)
             if not proxy: return
-            await ctx.message.remove_reaction(context.emoji, user.id)
 
             if context.emoji == EMOJI_WHO:
+                await ctx.message.remove_reaction(context.emoji, user.id)
                 e = Embed(
                     "Proxied Message",
                     str(
@@ -129,11 +129,13 @@ async def handle_reaction(context: ReactionActionEvent, server: Server):
                 await dm.send("", [e])
 
             if context.emoji == EMOJI_DELETE and proxy.owner == uid:
+                await ctx.message.remove_reaction(context.emoji, user.id)
                 await database().guilds.delete_link_message(message)
                 await ctx.message.delete()
                 return
 
             if context.emoji == EMOJI_EDIT and proxy.owner == uid:
+                await ctx.message.remove_reaction(context.emoji, user.id)
                 channel = await user.get_dm()
                 if not channel: return
                 raw = await ctx.get_wh_message_data(ctx)
@@ -146,6 +148,7 @@ async def handle_reaction(context: ReactionActionEvent, server: Server):
                     editing_proxy_messages.pop((user.id, ctx.platform))
 
             if context.emoji in (EMOJI_PING, EMOJI_PING2):
+                await ctx.message.remove_reaction(context.emoji, user.id)
                 await ctx.reply(
                     f"<@{lnk.platform_user}>, {user.mention} has pinged you! Use :x: to delete this message (expires in 5 minutes).",
                     user_id_override=lnk.platform_user

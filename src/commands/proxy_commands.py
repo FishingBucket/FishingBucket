@@ -1,4 +1,5 @@
 import asyncio
+import time
 from dataclasses import replace
 from datetime import datetime, timedelta
 from typing import Literal
@@ -190,7 +191,7 @@ def setup():
         if expires == "never":
             expiration = None
         else:
-            expiration = expires.total_seconds() + datetime.now().timestamp()
+            expiration = expires.total_seconds()
 
         if mode == "global" or mode is None:
             guild = GuildDat(0, context.platform)
@@ -208,6 +209,7 @@ def setup():
                     None,
                     None,
                     expiration,
+                    time.time(),
                     AutoproxyType.NORMAL
                 ))
 
@@ -220,6 +222,7 @@ def setup():
                     None,
                     None,
                     expiration,
+                    time.time(),
                     AutoproxyType.SPOTLIGHT
                 ))
 
@@ -247,6 +250,7 @@ def setup():
                     setting.id,
                     None,
                     expiration,
+                    time.time(),
                     AutoproxyType.NORMAL
                 ))
 

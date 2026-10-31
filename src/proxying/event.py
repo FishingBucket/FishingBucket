@@ -1,3 +1,4 @@
+import time
 from dataclasses import replace
 
 from .editing import is_replace, do_replace
@@ -131,8 +132,8 @@ async def on_user_message(context: Context):
                 await database().proxies.use(proxy.id)
 
             if proxied:
-                if autoproxy_prefs:
-                    autoproxy_prefs = replace(autoproxy_prefs, last_used_proxy=proxied[-1].proxy.id)
+                if autoproxy_prefs and not autoproxy_prefs.do_expire_now():
+                    autoproxy_prefs = replace(autoproxy_prefs, last_used_proxy=proxied[-1].proxy.id, last_used_timestamp=time.time())
                     await database().user_settings.set_autoproxy_preference(owner, autoproxy_prefs)
 
             await context.message.delete()

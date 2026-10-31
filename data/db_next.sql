@@ -39,12 +39,6 @@ CREATE TABLE IF NOT EXISTS channel_webhook_map (
     PRIMARY KEY (channel_id, guild_type)
 );
 
-CREATE TABLE IF NOT EXISTS global_stats (
-    key TEXT PRIMARY KEY,
-    value REAL
-);
-INSERT OR IGNORE INTO global_stats (key, value) VALUES ('version', 21);
-
 CREATE TABLE IF NOT EXISTS permission_overrides (
     guild_id INTEGER,
     guild_type INTEGER,
@@ -107,6 +101,7 @@ CREATE TABLE IF NOT EXISTS autoproxies (
     expires REAL,
     guild_type INTEGER,
     flags INTEGER,
+    last_used_timestamp REAL,
     PRIMARY KEY (guild_id, user_id, guild_type),
     FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
 );
@@ -124,3 +119,10 @@ PRAGMA synchronous=NORMAL;
 PRAGMA cache_size=-64000;
 PRAGMA temp_store=MEMORY;
 PRAGMA mmap_size=268435456;
+
+
+CREATE TABLE IF NOT EXISTS global_stats (
+    key TEXT PRIMARY KEY,
+    value REAL
+);
+INSERT OR IGNORE INTO global_stats (key, value) VALUES ('version', 22);

@@ -28,10 +28,11 @@ class AutoproxyPreference:
     set_proxy: ID | None
     last_used_proxy: ID | None
     expires: float | None
+    last_used_timestamp: float
     type: AutoproxyType
 
     def do_expire_now(self) -> bool:
-        return bool(self.expires and self.expires < time.time())
+        return bool(self.expires and self.last_used_timestamp and self.expires + self.last_used_timestamp < time.time())
 
     @classmethod
     def from_database(cls, row: Row) -> AutoproxyPreference:
@@ -43,7 +44,8 @@ class AutoproxyPreference:
             ID(row["proxy"]) if row["proxy"] is not None else None,
             ID(row["last_used_proxy"]) if row["last_used_proxy"] is not None else None,
             row["expires"],
-            AutoproxyType(row["flags"] or 0)
+            row["last_used_timestamp"] or time.time(),
+            AutoproxyType(row["flags"] or 0),
         )
 
     def to_database(self) -> dict:
@@ -53,6 +55,7 @@ class AutoproxyPreference:
             "proxy": self.set_proxy,
             "last_used_proxy": self.last_used_proxy,
             "expires": self.expires,
+            "last_used_timestamp": self.last_used_timestamp,
             "flags": self.type.value
         }
 
@@ -199,9 +202,9 @@ class UserSettingRepository:
     async def set_autoproxy_preference(self, user: UserID, preferences: AutoproxyPreference) -> None:
         async with self.database.connection.execute("""
             INSERT OR REPLACE INTO autoproxies (
-                guild_id, user_id, proxy, last_used_proxy, expires, guild_type, flags
+                guild_id, user_id, proxy, last_used_proxy, expires, last_used_timestamp, guild_type, flags
             ) VALUES (
-                :guild_id, :user_id, :proxy, :last_used_proxy, :expires, :guild_type, :flags
+                :guild_id, :user_id, :proxy, :last_used_proxy, :expires, :last_used_timestamp, :guild_type, :flags
             )
         """, {
             "user_id": user,

@@ -26,6 +26,7 @@ class MatchResult:
 class ProxiedMessage:
     proxy: Proxy
     message: str
+    is_autoproxied: bool
 
 
 def text_matches_trigger(text: str, triggers: list[str]) -> MatchResult:
@@ -43,7 +44,7 @@ def get_proxy_from_text(text: str, user_proxies: list[Proxy]) -> ProxiedMessage 
     for proxy in user_proxies:
         if proxy.triggers:
             if (res := text_matches_trigger(text, proxy.triggers)).matched():
-                return ProxiedMessage(proxy, res.match())
+                return ProxiedMessage(proxy, res.match(), False)
     return None
 
 
@@ -123,6 +124,7 @@ async def get_proxied_messages(
                 """
                 if (
                     proxied and last_proxied.proxy is proxied.proxy and this_line and this_line.proxy != proxied.proxy # A
+                        and not this_line.is_autoproxied # special case for autoproxying
                     or proxied is None and this_line and last_proxied.proxy is not this_line.proxy # B
                 ):
                     res.append(last_proxied)
@@ -154,6 +156,6 @@ def extract_message(
         if autoproxy_proxy:
             if message.startswith("\\") and not message.startswith("\\\\"):
                 return None
-            return ProxiedMessage(autoproxy_proxy, message)
+            return ProxiedMessage(autoproxy_proxy, message, True)
     return None
 

@@ -509,7 +509,7 @@ class Webhook(c.Webhook[fluxer.Webhook, fluxer.Bot]):
         dat = collect_args_kwargs(args, kwargs)
         content = dat.content
         if context.message.has_reference:
-           content = context.content.split("\n")[0] + content
+           content = context.content.split("\n")[0] + "\n" + content
 
         await self.raw._http.request( # type: ignore
             fhttp.Route("PATCH", "/webhooks/{wid}/{wtk}/messages/{mid}", wid=self.id, wtk=self.token, mid=context.id),

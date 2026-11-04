@@ -40,6 +40,10 @@ class ProxyRepository:
 
 
     async def update(self, proxy: FullProxy) -> None:
+        previous = await self.get(proxy.id)
+        if previous and previous.owner != proxy.owner:
+            raise ValueError("Tried to overwrite a proxy's `owner` field! This should not occur in normal operations.")
+
         async with self.database.connection.execute("""
             UPDATE proxies SET
                 name = :name, description = :description, avatar_url = :avatar_url, triggers = :triggers, owner = :owner,

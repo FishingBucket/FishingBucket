@@ -37,6 +37,10 @@ class ProxyTagRepository:
 
 
     async def update(self, tag: ProxyTag) -> None:
+        previous = await self.get(tag.id)
+        if previous and previous.owner != tag.owner:
+            raise ValueError("Tried to overwrite a tag's `owner` field! This should not occur in normal operations.")
+
         async with self.database.connection.execute("""
             UPDATE proxy_tags SET
                 name = :name, description = :description,

@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 
 import pydantic
 from aiohttp import ClientSession
@@ -102,26 +103,24 @@ def setup():
                 found_tag = [t for t in user_tags if t.name == tag.name]
                 if found_tag:
                     db_tag = found_tag[0]
-                    assert db_tag.id is not None
+                    tag_mapping[tag.id] = db_tag.id
 
-                    await database().tags.update(tag)
+                    await database().tags.update(replace(tag, id=db_tag.id))
                     updated_tags += 1
                 else:
-                    tag_id = ID(tag.id)
-                    tag_mapping[tag_id] = await database().tags.put(tag)
+                    tag_mapping[tag.id] = await database().tags.put(tag)
                     inserted_tag_instances.append(tag)
 
             for proxy in cls.proxies:
                 found_proxy = [p for p in user_proxies if p.name == proxy.name]
                 if found_proxy:
                     db_proxy = found_proxy[0]
-                    assert db_proxy.id is not None
+                    proxy_mapping[proxy.id] = db_proxy.id
 
-                    await database().proxies.update(proxy)
+                    await database().proxies.update(replace(proxy, id=db_proxy.id))
                     updated_proxies += 1
                 else:
-                    proxy_id = ID(proxy.id)
-                    proxy_mapping[proxy_id] = await database().proxies.put(proxy)
+                    proxy_mapping[proxy.id] = await database().proxies.put(proxy)
                     inserted_proxy_instances.append(proxy)
 
             for relation_proxy, relation_tags in cls.relationships.items():

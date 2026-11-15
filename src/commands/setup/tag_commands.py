@@ -244,7 +244,13 @@ def setup():
                         TemplateStrategy([
                             "name",
                             "proxy",
-                            "tag"
+                            "tag",
+                            "id",
+                            "description",
+                            "triggers",
+                            "tags",
+                            "form",
+                            "pronouns",
                         ]),
                         None
                     )

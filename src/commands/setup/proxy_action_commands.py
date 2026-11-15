@@ -4,6 +4,7 @@ from ..generic import make_command_group, make_command, Argument
 from ..generic.misc import lorem_ipsum
 from ..generic.strategies import URLStrategy, Optional, OptionList, List, StringStrategy, Sequence
 from ..specific import ProxyStrategy, TemplateStrategy, ProxyTagStrategy
+from .proxy_commands import random_trigger
 
 
 def setup():
@@ -93,7 +94,8 @@ def setup():
                             "text"
                         ]),
                         None
-                    )
+                    ),
+                    random_trigger
                 )
             ]
         )
